@@ -1,0 +1,71 @@
+/* ===== Tighten top spacing under navbar =====
+   Paste at the end of your global CSS so it overrides previous rules.
+   This is non-destructive: it only reduces top spacing and won't break layout.
+*/
+
+/* 1) Reduce top margin on typical page containers */
+.container,
+.card-container,
+.page-card,
+.manage-depts-page,
+.seminar-page.card-container,
+.manage-halls-container,
+.all-depts-page.container,
+.export-page,
+.edit-hall-page {
+  margin-top: 8px !important;   /* previously might be 18-48px — shrink it */
+  padding-top: 8px !important;  /* reduce inner top padding too */
+}
+
+/* 2) Remove any large top padding reserved for a header placeholder */
+.app-header-space,
+.header-spacer,
+.top-spacer,
+.navbar-space {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 3) If your site uses a sticky header with body padding-top to avoid overlap:
+   shrink that padding. Typical patterns: body { padding-top: 80px; } */
+body {
+  padding-top: 8px !important; /* if your sticky header requires some offset, keep a small one */
+}
+
+/* 4) If the navbar is actually taller than expected, reduce its height + inner padding */
+.header, .navbar, .topbar, .site-header {
+  min-height: 48px !important;   /* smaller header height */
+  height: auto !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+/* 5) Keep first-page heading aligned close to the navbar */
+.manage-depts-header,
+.page-top,
+.header-row {
+  margin-top: 6px !important;
+}
+
+/* 6) Safe mobile rule: don't collapse spacing too much on very small screens */
+@media (max-width: 520px) {
+  .container,
+  .card-container,
+  .page-card,
+  .manage-depts-page,
+  .seminar-page.card-container,
+  .manage-halls-container,
+  .all-depts-page.container,
+  .export-page,
+  .edit-hall-page {
+    margin-top: 6px !important;
+    padding-top: 8px !important;
+  }
+}
+
+/* 7) Visual debug aid (temporary): uncomment to see which element is creating space
+   .debug-top { outline: 2px solid rgba(255,0,0,0.35); }
+   then add class "debug-top" to suspect containers while testing.
+*/

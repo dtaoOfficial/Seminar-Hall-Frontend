@@ -1,0 +1,299 @@
+/* ==============================
+   Responsive Glassy Login Page
+   ============================== */
+
+/* Variables */
+:root {
+  --accent: #1063e1;
+  --accent-600: #07356f;
+  --bg-white: #ffffff;
+  --muted: #6b7280;
+  --card-radius: 14px;
+  --shadow: 0 8px 30px rgba(13, 37, 63, 0.08);
+  --glass-blur: 10px;
+  --mono: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Reset */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: var(--mono);
+  background: var(--bg-white);
+  color: #0b1b2b;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ------------------------------
+   Base Layout (Mobile First)
+   ------------------------------ */
+.login-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.login-hero {
+  width: 100%;
+  min-height: 160px;
+  background: linear-gradient(180deg, rgba(10,71,161,0.06), rgba(10,71,161,0.03));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+/* Hide top logo only on mobile (<=599px) */
+@media (max-width: 599px) {
+  .top-logo-container {
+    display: none;
+  }
+}
+
+.login-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("https://res.cloudinary.com/duhki4wze/image/upload/v1757228960/NHCE_Photo_jhutdr.webp");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.45;
+  filter: blur(6px) saturate(90%);
+}
+
+.hero-overlay {
+  position: relative;
+  text-align: center;
+  z-index: 1;
+}
+
+.hero-logo {
+  width: 160px;
+  max-width: 60%;
+  height: auto;
+  margin-bottom: 12px;
+}
+
+.login-hero h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--accent-600);
+}
+
+.login-form {
+  flex: 1;
+  width: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Top logo */
+.top-logo-container {
+  position: absolute;
+  top: 20px; /* default, overridden in desktop */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+.top-logo {
+  width: 220px;
+  max-width: 80vw;
+  object-fit: contain;
+}
+
+/* Form Title */
+.form-title {
+  margin: 12px 0;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--accent-600);
+}
+
+/* Card */
+.seminar-form {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255,255,255,0.95);
+  border-radius: var(--card-radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+/* Inputs */
+.seminar-form label {
+  display: block;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.seminar-form input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(10,20,40,0.1);
+  background: #fff;
+  font-size: 14px;
+  transition: all 0.2s ease-in-out;
+}
+.seminar-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 6px 18px rgba(10,71,161,0.12);
+  transform: translateY(-2px);
+}
+
+/* Show/Hide Password Button */
+.show-password-btn {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(10,71,161,0.12);
+  background: linear-gradient(180deg, #fff, #f3f6fb);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent-600);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+.show-password-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(10,71,161,0.08);
+}
+.show-password-btn:active {
+  transform: scale(0.97);
+}
+
+/* Login Button */
+.login-btn {
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  background: linear-gradient(90deg, var(--accent), var(--accent-600));
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.25s ease-in-out;
+  box-shadow: 0 8px 22px rgba(10,71,161,0.12);
+}
+.login-btn:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 14px 40px rgba(10,71,161,0.16);
+}
+.login-btn:active {
+  transform: scale(0.98);
+}
+.login-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Inline Spinner */
+.spinner-inline {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.18);
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Error */
+.error-msg {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255,235,238,0.95);
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+/* Help row */
+.help-row {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.help-row a {
+  color: var(--accent-600);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* ------------------------------
+   Tablet Layout (>=600px)
+   ------------------------------ */
+@media (min-width: 600px) {
+  .login-container {
+    flex-direction: row;
+  }
+  .login-hero {
+    width: 40%;
+    min-height: 100vh;
+    padding: 40px;
+  }
+  .login-form {
+    width: 60%;
+    padding: 40px;
+    justify-content: center;
+  }
+  .form-title {
+    text-align: left;
+    font-size: 20px;
+  }
+  .hero-logo {
+    width: 220px;
+    
+  }
+  .top-logo-container {
+    top: 30px;
+    left: 680px;
+  }
+}
+
+/* ------------------------------
+   Desktop Layout (>=1025px)
+   ------------------------------ */
+@media (min-width: 1025px) {
+  .login-hero {
+    width: 44%;
+    padding: 60px;
+  }
+  .login-form {
+    width: 56%;
+    padding: 60px;
+  }
+  .seminar-form {
+    max-width: 420px;
+    padding: 26px;
+  }
+  .form-title {
+    font-size: 22px;
+    font-weight: 800;
+  }
+
+  /* 🔥 move top logo down */
+  .top-logo-container {
+    top: 50px;
+    left: 280px;
+  }
+  .top-logo {
+    width: 520px;
+    max-width: 86vw;
+  }
+}

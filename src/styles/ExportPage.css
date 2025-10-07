@@ -1,0 +1,315 @@
+/* ExportPage.css
+   Responsive preview table with column resizers, panning, expanded overlay,
+   and optimized mobile + print rules.
+*/
+
+/* Root / base */
+:root{
+  --bg: #fff;
+  --page-font: Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent-dark: #172a56;
+  --card-bg: #fff;
+  --shadow: 0 18px 40px rgba(10,20,40,0.08);
+  --radius: 8px;
+  --resizer-hit: 12px;
+}
+
+/* Page container */
+.export-page {
+  font-family: var(--page-font);
+  color: var(--text);
+  background: var(--bg);
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header / title */
+.page-title {
+  margin-top: 0;
+  margin-bottom: 6px;
+  font-size: 22px;
+  color: var(--accent-dark);
+}
+.muted {
+  color: var(--muted);
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+
+/* Buttons */
+.btn-back {
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  color: #111;
+}
+.btn-primary, .btn-secondary {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-primary {
+  background: var(--accent-dark);
+  color: #fff;
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-secondary {
+  background: #f3f4f6;
+  color: #111;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Preview wrapper (scrollable & pannable) */
+.preview-wrapper {
+  overflow: auto;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: var(--radius);
+  padding: 6px;
+  background: var(--card-bg);
+  cursor: grab; /* panning hint */
+  max-height: 720px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.preview-wrapper.panning { cursor: grabbing; }
+
+/* Table: uses <colgroup> widths; table-layout: fixed to honor col widths */
+.export-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 0; /* allow shrink */
+  table-layout: fixed;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* table header */
+.export-table thead th {
+  background: var(--accent-dark);
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  text-align: left;
+  font-weight: 700;
+  padding: 10px 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  position: relative; /* for resizer inside */
+}
+
+/* table body cells */
+.export-table tbody td {
+  background: var(--card-bg);
+  padding: 10px 12px;
+  border-top: 1px solid rgba(0,0,0,0.04);
+  vertical-align: top;
+  font-size: 13px;
+  line-height: 1.35;
+  white-space: nowrap;          /* desktop/tablet single-line */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+/* last column remarks: allow wrapping (long notes) */
+.export-table tbody td:last-child {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 420px;
+  overflow: visible;
+}
+
+/* hover row */
+.export-table tbody tr:hover {
+  background: rgba(23, 42, 86, 0.03);
+}
+
+/* Column resizer handle: placed inside TH (right edge)
+   Larger transparent hit area to make dragging easier on touch. */
+.col-resizer {
+  position: absolute;
+  right: -6px; /* small overlap so handle appears slightly outside */
+  top: 0;
+  height: 100%;
+  width: var(--resizer-hit);
+  cursor: col-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  touch-action: none; /* allow touch dragging */
+}
+.col-resizer::after{
+  content: "";
+  width: 2px;
+  height: 46%;
+  background: rgba(255,255,255,0.7);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.04) inset;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* Expanded overlay */
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 20, 0.6);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.preview-overlay-inner {
+  width: 96%;
+  height: 88%;
+  background: #fff;
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* When expanded, allow the table to show its natural width (col widths control) */
+.preview-wrapper.expanded-inner {
+  flex: 1;
+  overflow: auto;
+  border-radius: 6px;
+  padding: 8px;
+  background: #fff;
+}
+.preview-overlay .export-table,
+.preview-wrapper.expanded-inner .export-table {
+  width: auto !important;
+  table-layout: fixed;
+}
+
+/* Small screens: make preview usable by switching to stacked "cards" view */
+@media (max-width: 820px) {
+  .preview-wrapper { max-height: 420px; }
+
+  /* collapse table into cards for readability and to avoid extreme horizontal scroll */
+  .export-table thead { display: none; }
+  .export-table, .export-table tbody, .export-table tr, .export-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .export-table tr {
+    margin: 0 0 14px 0;
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 6px 18px rgba(10,20,40,0.04);
+    border: 1px solid rgba(0,0,0,0.03);
+    box-sizing: border-box;
+  }
+
+  .export-table td {
+    padding: 6px 0;
+    border: none;
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: left;
+    white-space: normal; /* allow wrapping */
+    overflow: visible;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  /* label on left (from data-label) */
+  .export-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--muted);
+    flex: 0 0 38%;
+    text-align: left;
+  }
+  .export-table td > * { flex: 1 1 auto; text-align: left; }
+
+  /* ensure remarks wrap */
+  .export-table td:last-child { white-space: normal; word-break: break-word; }
+
+  /* hide resizer on mobile (not needed) */
+  .col-resizer { display: none; }
+}
+
+/* Very small phones: reduce label width */
+@media (max-width: 420px) {
+  .export-table td::before { flex: 0 0 42%; font-size: 13px; }
+  .preview-wrapper { max-height: 360px; }
+}
+
+/* Print rules */
+@media print {
+  .btn-back, .btn-primary, .btn-secondary, .col-resizer, .preview-overlay { display: none !important; }
+  .preview-wrapper {
+    border: none;
+    overflow: visible;
+    padding: 0;
+    max-height: none;
+  }
+  .export-table {
+    min-width: 0;
+    table-layout: auto;
+    width: 100% !important;
+    font-size: 11px;
+  }
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+}
+
+/* Accessibility focus outlines */
+:focus { outline: none; }
+button:focus, .col-resizer:focus, a:focus, input:focus {
+  outline: 3px solid rgba(23, 42, 86, 0.08);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+/* Utility */
+.wrap { word-break: break-word; white-space: normal; }
+
+
+
+
+/* ===== Reset unwanted spacing ===== */
+body, html {
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove default margin from headings and sections */
+h1, h2, h3, h4, h5, h6,
+section, main {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Force all page containers to start tight under navbar */
+.page-container,
+.main-content,
+.content-wrapper {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}

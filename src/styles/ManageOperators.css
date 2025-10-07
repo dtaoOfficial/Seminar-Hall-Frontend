@@ -1,0 +1,327 @@
+/* ManageOperators.css - responsive form + table styles */
+
+/* ===== Container ===== */
+.manage-operators {
+  max-width: 1000px;
+  margin: 30px auto;
+  padding: 20px;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  color: #333;
+  box-sizing: border-box;
+}
+
+/* ===== Title ===== */
+.manage-operators h2 {
+  text-align: left;
+  margin-bottom: 18px;
+  color: #2c3e50;
+  font-weight: 700;
+  font-size: 1.4rem;
+}
+
+/* ===== Form ===== */
+.manage-operators form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 18px;
+  background: #fff;
+  padding: 14px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  border: 1px solid #eee;
+}
+
+.manage-operators input,
+.manage-operators select {
+  padding: 10px;
+  border: 1px solid #dcdcdc;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: 0.12s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.manage-operators input:focus,
+.manage-operators select:focus {
+  border-color: #3498db;
+  outline: none;
+  box-shadow: 0 0 6px rgba(52, 152, 219, 0.18);
+}
+
+.manage-operators .btn-group,
+.manage-operators .btn-group button {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.12s, transform 0.08s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn:hover { transform: translateY(-1px); }
+
+.btn.primary {
+  background: #3498db;
+  color: white;
+}
+.btn.primary:hover { background: #2980b9; }
+
+.btn.ghost {
+  background: #f8f9fa;
+  color: #333;
+  border: 1px solid #e6e6e6;
+}
+.btn.ghost:hover { background: #eef2f6; }
+
+.btn.danger {
+  background: #e74c3c;
+  color: white;
+}
+.btn.danger:hover { background: #c0392b; }
+
+.btn.small {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+/* ===== Table ===== */
+.manage-operators table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 6px;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  table-layout: auto;
+}
+
+.manage-operators th,
+.manage-operators td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+  vertical-align: middle;
+  word-break: break-word;
+  max-width: 250px;
+  box-sizing: border-box;
+}
+
+.manage-operators th {
+  background: #f8fafc;
+  color: #0b2a56;
+  font-weight: 700;
+}
+
+.manage-operators tbody tr:nth-child(even) {
+  background: #fbfdff;
+}
+
+.manage-operators tbody tr:hover {
+  background: #f1f7fd;
+  transition: 0.12s;
+}
+
+.manage-operators td:last-child {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.manage-operators td button {
+  margin-right: 6px;
+}
+
+/* ===== Responsive (mobile) ===== */
+@media (max-width: 768px) {
+  .manage-operators {
+    padding: 12px;
+  }
+
+  .manage-operators form {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+
+  /* convert table to stacked cards on small screens */
+  .manage-operators table,
+  .manage-operators thead,
+  .manage-operators tbody,
+  .manage-operators th,
+  .manage-operators td,
+  .manage-operators tr {
+    display: block;
+    width: 100%;
+  }
+
+  .manage-operators thead {
+    display: none;
+  }
+
+  .manage-operators tr {
+    margin-bottom: 12px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    padding: 10px;
+  }
+
+  .manage-operators td {
+    border: none;
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 6px;
+  }
+
+  .manage-operators td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #555;
+    margin-right: 8px;
+    flex: 0 0 40%;
+  }
+
+  .manage-operators td:last-child {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  .manage-operators .btn.small {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+}
+
+/* tiny screens */
+@media (max-width: 420px) {
+  .manage-operators h2 { font-size: 1.2rem; }
+  .manage-operators th, .manage-operators td { font-size: 13px; padding: 8px; }
+  .manage-operators td::before { flex-basis: 45%; }
+}
+/* ===== Fix: keep Clear/Create buttons inside layout on small screens ===== */
+/* Place near the end of src/styles/ManageOperators.css */
+
+.manage-operators {
+  /* ensure box-sizing and no accidental overflow */
+  box-sizing: border-box;
+}
+
+/* make button group flexible and allow wrapping so buttons never escape container */
+.manage-operators .btn-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;       /* allow wrap when space is tight */
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* let buttons shrink but keep a sensible min width on larger screens */
+.manage-operators .btn {
+  min-width: 120px;
+  white-space: nowrap;
+  flex: 0 1 auto;
+}
+
+/* on narrow screens: stack buttons and make them full width */
+@media (max-width: 520px) {
+  .manage-operators .btn-group {
+    gap: 8px;
+    justify-content: stretch; /* stretch children across container */
+  }
+
+  .manage-operators .btn {
+    flex: 1 1 100%;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* if you want primary button first and clear second, keep DOM order or use this to prefer primary on top */
+  /* .manage-operators .btn.primary { order: 0; } */
+  /* .manage-operators .btn.ghost   { order: 1; } */
+}
+
+/* extra safety: prevent horizontal overflow of the form itself */
+.manage-operators form {
+  overflow: hidden;
+  width: 100%;
+}
+
+/* if your layout uses a two-column form on tablet, ensure buttons wrap in that layout too */
+@media (max-width: 768px) {
+  .manage-operators form {
+    grid-template-columns: 1fr;
+  }
+  .manage-operators .btn {
+    min-width: 0;
+  }
+}
+/* ===== Desktop button layout polish ===== */
+.manage-operators .btn-group {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-start;
+  margin-top: 6px;
+}
+
+/* smaller desktop buttons */
+@media (min-width: 769px) {
+  .manage-operators .btn {
+    padding: 6px 16px;
+    font-size: 13px;
+    border-radius: 6px;
+    min-width: auto;
+  }
+
+  /* make primary (Create/Save) more prominent */
+  .manage-operators .btn.primary {
+    background: #007bff;
+    font-weight: 600;
+  }
+
+  /* secondary (Clear/Cancel) lighter */
+  .manage-operators .btn.ghost {
+    background: #f1f5f9;
+    color: #333;
+    border: 1px solid #ddd;
+  }
+}
+
+
+
+
+
+
+/* ===== Reset unwanted spacing ===== */
+body, html {
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove default margin from headings and sections */
+h1, h2, h3, h4, h5, h6,
+section, main {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Force all page containers to start tight under navbar */
+.page-container,
+.main-content,
+.content-wrapper {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}

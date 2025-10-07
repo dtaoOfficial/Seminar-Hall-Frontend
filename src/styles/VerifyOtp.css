@@ -1,0 +1,238 @@
+/* =======================================
+   Verify OTP Page (Responsive Layout)
+   Sections: Mobile, Tablet, Desktop
+   ======================================= */
+
+/* 🎯 Global Theme & Reset */
+:root {
+  --hero-img: url("https://res.cloudinary.com/duhki4wze/image/upload/v1757228960/NHCE_Photo_jhutdr.webp");
+  --accent: #1063e1;
+  --accent-2: #18a0ff;
+  --muted: #6b7280;
+  --text: #071127;
+  --input-radius: 10px;
+  --btn-radius: 10px;
+  --hero-blur: 8px;
+  --transition-fast: 160ms;
+  --shadow-soft: 0 10px 36px rgba(6,12,22,0.06);
+  --mono: Inter, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: var(--mono);
+  background: #f4f8fb;
+  color: var(--text);
+}
+
+/* =======================================
+   📱 MOBILE (default, max 599px)
+   ======================================= */
+.vo-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Hero */
+.vo-hero {
+  width: 100%;
+  min-height: 180px;
+  padding: 20px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid rgba(10,20,40,0.04);
+  background: linear-gradient(180deg, rgba(10,71,161,0.06), rgba(10,71,161,0.02));
+}
+.vo-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--hero-img);
+  background-size: cover;
+  background-position: center;
+  filter: blur(var(--hero-blur)) saturate(95%);
+  opacity: 0.9;
+}
+.vo-hero .hero-overlay {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+.vo-hero .hero-logo {
+  width: 160px;
+  max-width: 70%;
+  background: rgba(255,255,255,0.92);
+  padding: 8px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-soft);
+}
+.vo-hero .hero-title {
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f4f8fb;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+/* Main */
+.vo-main {
+  width: 100%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.vo-top h2 { margin: 0 0 6px; font-size: 22px; }
+.vo-top p { margin: 0 0 14px; color: var(--muted); }
+
+/* Form */
+.vo-form {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.vo-form label { font-size: 14px; color: var(--muted); }
+.vo-form input {
+  padding: 12px;
+  border-radius: var(--input-radius);
+  border: 1px solid rgba(8,16,32,0.08);
+  background: #fff;
+  font-size: 15px;
+}
+.vo-form input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 6px 20px rgba(16,99,225,0.08);
+  transform: translateY(-2px);
+}
+
+/* Actions */
+.vo-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.vo-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--btn-radius);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+.vo-btn-primary {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  color: #fff;
+}
+.vo-btn-ghost {
+  background: #fff;
+  border: 1px solid rgba(10,20,40,0.1);
+  color: var(--text);
+}
+
+/* Countdown */
+.vo-countdown {
+  margin-top: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vo-countdown.expired { color: #b91c1c; }
+.vo-countdown-bar {
+  width: 100%;
+  max-width: 280px;
+  height: 8px;
+  background: rgba(10,20,40,0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.vo-countdown-bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 400ms linear;
+}
+
+/* Feedback */
+.vo-feedback {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  width: 100%;
+  max-width: 400px;
+}
+.vo-success { background: rgba(16,180,120,0.08); color: #0b7a54; }
+.vo-error { background: rgba(255,80,80,0.06); color: #7a1a1a; }
+
+/* Hide blur control on mobile */
+.vo-blur-control { display: none; }
+
+/* =======================================
+   💻 TABLET (600px – 1024px)
+   ======================================= */
+@media (min-width: 600px) and (max-width: 1024px) {
+  .vo-root { flex-direction: row; }
+  .vo-hero {
+    width: 40%;
+    min-height: 100vh;
+    padding: 30px;
+  }
+  .vo-hero .hero-logo { width: 200px; }
+  .vo-hero .hero-title { font-size: 18px; }
+
+  .vo-main {
+    width: 60%;
+    padding: 40px;
+    justify-content: center;
+  }
+  .vo-top h2 { font-size: 26px; }
+
+  .vo-actions { flex-direction: row; justify-content: center; }
+  .vo-btn { width: auto; min-width: 140px; }
+}
+
+/* =======================================
+   🖥️ DESKTOP (>=1025px)
+   ======================================= */
+@media (min-width: 1025px) {
+  .vo-root { flex-direction: row; }
+  .vo-hero {
+    width: 44%;
+    min-height: 100vh;
+    padding: 60px;
+  }
+  .vo-hero .hero-logo { width: 260px; }
+  .vo-hero .hero-title { font-size: 20px; }
+
+  .vo-main {
+    width: 56%;
+    padding: 60px;
+    justify-content: flex-start;
+  }
+  .vo-top h2 { font-size: 32px; }
+
+  .vo-actions { flex-direction: row; gap: 12px; }
+  .vo-btn { min-width: 160px; }
+
+  /* Show blur control only on desktop */
+  .vo-blur-control {
+    display: flex;
+    position: fixed;
+    right: 18px;
+    top: 18px;
+    background: #fff;
+    padding: 10px 12px;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    gap: 8px;
+    align-items: center;
+  }
+}

@@ -1,0 +1,317 @@
+:root{
+  --bg: #f6f9fb;
+  --card-bg: rgba(255,255,255,0.98);
+  --glass-bg: rgba(255,255,255,0.96);
+  --accent: #0a47a1;
+  --accent-600: #07356f;
+  --muted: #6b7280;
+  --text: #0b1730;
+  --radius: 12px;
+  --shadow-soft: 0 8px 28px rgba(6,12,22,0.06);
+  --btn-h: 36px;
+  --mono: "Inter","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+
+/* page base */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  font-family: var(--mono);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* container */
+.seminar-page.card-container {
+  max-width: 1180px;
+  margin: 18px auto 48px;
+  padding: 0 18px;
+  box-sizing: border-box;
+}
+
+/* main card */
+.page-card {
+  background: linear-gradient(180deg, var(--card-bg), rgba(255,255,255,0.96));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(10,20,40,0.04);
+  overflow: hidden;
+}
+
+/* top row */
+.page-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  gap: 12px;
+  background: linear-gradient(180deg, rgba(242,247,255,0.9), rgba(255,255,255,0.75));
+  border-bottom: 1px solid rgba(10,20,40,0.03);
+}
+.page-top h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--accent-600);
+  font-weight: 800;
+  line-height: 1;
+}
+.top-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* body */
+.page-body { padding: 12px 16px 18px; box-sizing: border-box; }
+
+/* status boxes */
+.status-box {
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(10,20,40,0.02);
+  color: var(--muted);
+  font-weight: 700;
+}
+.status-box.error {
+  background: rgba(255,235,238,0.95);
+  color: #b91c1c;
+  border: 1px solid rgba(185,28,28,0.06);
+}
+
+/* table wrapper allows scroll on overflow */
+.table-wrap {
+  overflow: auto;
+  border-radius: 10px;
+  background: transparent;
+  padding: 6px 6px 0 6px;
+}
+
+/* seminar table: allow auto fit */
+.seminar-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 14px;
+  background: transparent;
+  margin: 0;
+}
+
+/* header: soft/light background */
+.seminar-table thead th {
+  position: sticky;
+  top: 0;
+  background: rgba(245,250,255,0.95);
+  color: var(--accent-600);
+  padding: 12px 10px;
+  font-weight: 800;
+  text-align: left;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(10,20,40,0.04);
+  z-index: 2;
+}
+
+/* ---------------- DESKTOP/TABLET CELLS: SINGLE-LINE WITH ELLIPSIS ---------------- */
+/* keeps desktop & tablet rows single-line and uses ellipsis when content is long */
+.seminar-table tbody td {
+  padding: 10px 10px;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+  color: var(--text);
+
+  /* force single-line with ellipsis on larger screens */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px; /* default max column width (adjust if you want wider cells) */
+}
+
+/* apply slightly different max-widths for particular columns if desired */
+/* you can tweak these numbers to better match your content */
+.seminar-table tbody td[data-label="Email"] { max-width: 220px; }
+.seminar-table tbody td[data-label="Title"] { max-width: 240px; }
+.seminar-table tbody td[data-label="Booked By"] { max-width: 160px; }
+.seminar-table tbody td[data-label="Hall"] { max-width: 140px; }
+.seminar-table tbody td[data-label="Applied At"] { max-width: 160px; }
+
+/* subtle alternate row shading */
+.seminar-table tbody tr:nth-child(odd) td {
+  background: rgba(10,20,40,0.01);
+}
+
+/* small helper classes */
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.nowrap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* title cell */
+.title-cell { font-weight: 800; color: var(--accent-600); }
+
+/* status badges */
+.status {
+  font-weight: 800;
+  padding: 6px 8px;
+  border-radius: 8px;
+  display: inline-block;
+  font-size: 12px;
+}
+.status.ok { color: #047857; background: rgba(4,120,87,0.06); }
+.status.warn { color: #b45309; background: rgba(180,83,9,0.06); }
+.status.bad { color: #b91c1c; background: rgba(185,28,28,0.06); }
+
+/* buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--btn-h);
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(10,20,40,0.08);
+  background: #fff;
+  color: var(--accent-600);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.btn:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(10,71,161,0.06); }
+.btn.small { height: 32px; padding: 0 10px; font-size: 13px; border-radius: 8px; }
+.btn.ghost { background: rgba(255,255,255,0.92); color: var(--accent-600); border: 1px solid rgba(10,71,161,0.06); }
+.btn.danger { background: linear-gradient(180deg,#fff7f7,#fff2f2); color: #b91c1c; border: 1px solid rgba(185,28,28,0.06); }
+
+/* actions cell */
+.actions-cell { display: flex; gap: 8px; align-items: center; }
+
+/* Medium adjustments */
+@media (max-width: 1100px) {
+  .seminar-table { font-size: 13px; }
+  .seminar-table thead th { font-size: 12.5px; padding: 10px 8px; }
+  .seminar-table tbody td { padding: 9px 8px; font-size: 13px; }
+  /* reduce max widths a bit on narrower tablets */
+  .seminar-table tbody td { max-width: 220px; }
+  .seminar-table tbody td[data-label="Email"] { max-width: 200px; }
+  .seminar-table tbody td[data-label="Title"] { max-width: 220px; }
+}
+
+/* ---------------- MOBILE CARD VIEW (unchanged layout you confirmed works) ---------------- */
+@media (max-width: 780px) {
+
+  /* remove desktop cell constraints on mobile */
+  .seminar-table tbody td {
+    /* allow wrapping and normal flow on mobile */
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+    max-width: none !important;
+    padding: 6px 0;
+  }
+
+  .seminar-table thead { display: none; }
+
+  .seminar-table,
+  .seminar-table tbody,
+  .seminar-table tr,
+  .seminar-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .seminar-table tr {
+    margin: 0 0 16px 0;
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 14px;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid rgba(10,20,40,0.05);
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  .seminar-table td {
+    padding: 6px 0;
+    border: none;
+    font-size: 14px;
+    line-height: 1.4;
+    text-align: center;
+    display: block;
+  }
+
+  /* Label above value (Label : Value) */
+  .seminar-table td::before {
+    content: attr(data-label) " : ";
+    display: inline-block;
+    font-weight: 700;
+    color: var(--muted);
+    margin-right: 4px;
+  }
+
+  /* Ensure important fields wrap nicely */
+  .seminar-table td[data-label="Email"],
+  .seminar-table td[data-label="Title"],
+  .seminar-table td[data-label="Booked By"] {
+    word-break: break-word;
+    white-space: normal;
+  }
+
+  /* Centered status pill */
+  .status {
+    display: inline-block;
+    margin: 4px 0;
+    font-size: 13px;
+    padding: 4px 8px;
+  }
+
+  /* Actions: centered, visible, compact */
+  .actions-cell {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+
+  .actions-cell .btn {
+    height: 34px;
+    font-size: 13px;
+    padding: 0 12px;
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+
+  .actions-cell .btn.danger {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+  }
+}
+
+/* focus accessibility */
+button:focus, a:focus, input:focus { outline: 3px solid rgba(10,71,161,0.08); outline-offset: 4px; border-radius: 8px; }
+
+/* utility */
+.wrap { word-break: break-word; white-space: normal; }
+
+
+
+
+
+/* ===== Reset unwanted spacing ===== */
+body, html {
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove default margin from headings and sections */
+h1, h2, h3, h4, h5, h6,
+section, main {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Force all page containers to start tight under navbar */
+.page-container,
+.main-content,
+.content-wrapper {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}

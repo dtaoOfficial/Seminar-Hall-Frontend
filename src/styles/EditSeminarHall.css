@@ -1,0 +1,287 @@
+/* src/styles/EditSeminarHall.css
+   Responsive styles for EditSeminarHall / SeminarDetails UI
+   - Desktop: two-column split (left list, right details)
+   - Tablet: stacked with left as horizontal scroller
+   - Phone: stacked single column, touch-friendly
+*/
+
+/* Vars */
+:root {
+  --bg: #f6f9fb;
+  --card-bg: #ffffff;
+  --muted: #6b7280;
+  --accent: #0a47a1;
+  --accent-600: #07356f;
+  --danger: #b91c1c;
+  --radius: 12px;
+  --soft-shadow: 0 8px 24px rgba(6,12,22,0.04);
+  --glass-border: 1px solid rgba(10,20,40,0.04);
+  --hour-size: 56px;
+  --hour-gap: 8px;
+  --mono: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Base */
+* { box-sizing: border-box; }
+html,body,#root { height: 100%; margin: 0; background: var(--bg); font-family: var(--mono); color: #0b1730; -webkit-font-smoothing:antialiased; }
+.edit-hall-page { padding: 18px; max-width: 1200px; margin: 18px auto 48px; }
+
+/* Notification bar */
+.notification-bar {
+  background: linear-gradient(90deg,#fff5f5,#fff);
+  border: 1px solid rgba(185,28,28,0.06);
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: var(--danger);
+  box-shadow: var(--soft-shadow);
+  margin-bottom: 12px;
+}
+
+/* Grid layout */
+.edit-hall-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 320px 1fr;
+  align-items: start;
+}
+
+/* card base */
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 12px;
+  box-shadow: var(--soft-shadow);
+  border: var(--glass-border);
+}
+
+/* Hall list (left column) */
+.hall-list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: calc(100vh - 140px);
+  overflow: hidden;
+}
+.hall-list h3 { margin: 0 0 6px 0; font-size: 16px; color: var(--accent-600); }
+.hall-items {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 6px;
+}
+.hall-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background .12s ease, transform .08s ease;
+  user-select: none;
+}
+.hall-item:hover { background: rgba(10,20,40,0.02); transform: translateY(-2px); }
+.hall-item.active { border: 1px solid rgba(10,71,161,0.08); background: linear-gradient(180deg, rgba(10,71,161,0.03), rgba(10,71,161,0.01)); }
+
+.hall-thumb {
+  width: 76px;
+  height: 56px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f2f6fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.hall-thumb img { width: 100%; height: 100%; object-fit: cover; display:block; }
+.no-image { font-size: 12px; color: var(--muted); padding: 6px; text-align:center; }
+
+/* meta */
+.hall-meta { flex: 1; min-width: 0; }
+.hall-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.hall-capacity, .hall-feats { font-size: 12px; color: var(--muted); }
+
+/* Right detail panel */
+.hall-detail { padding: 14px; display: flex; flex-direction: column; gap: 12px; min-height: 400px; }
+.warning { background: #fff7e6; padding: 8px 10px; border-radius: 8px; color: #6a4900; border: 1px solid rgba(160,120,20,0.06); }
+.detail-header { display:flex; align-items:center; justify-content:space-between; gap: 12px; }
+.detail-header h3 { margin: 0; font-size: 18px; }
+.detail-actions { display:flex; gap:8px; }
+
+/* small buttons (reuse .btn in app but ensure defaults) */
+.btn { padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(10,20,40,0.06); background: #fff; color: var(--accent-600); font-weight:700; cursor:pointer; }
+.btn-primary { background: linear-gradient(90deg,var(--accent),var(--accent-600)); color:#fff; border:none; }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Photos row */
+.photos-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.photo-item { width: 120px; height: 80px; object-fit:cover; border-radius:8px; box-shadow: 0 8px 20px rgba(6,12,22,0.06); cursor: pointer; }
+.no-image-large { width: 100%; padding: 18px; background: #fbfbfb; border-radius: 8px; color: var(--muted); text-align:center; }
+
+/* features */
+.features-block { margin-top: 6px; }
+.features-block h4 { margin: 0 0 8px 0; font-size: 15px; }
+.features-list { display:flex; gap:8px; flex-wrap:wrap; }
+.feat-chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(10,20,40,0.06);
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: transform .08s ease, box-shadow .12s ease;
+}
+.feat-chip.kept { background: linear-gradient(90deg,#f3fbff,#eef7ff); color: var(--accent-600); }
+.feat-chip.removed { opacity: .6; background: #fff6f6; color: var(--danger); transform: scale(.99); }
+
+/* date picker */
+input[type="date"] { padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(10,20,40,0.06); background: #fff; }
+
+/* hours grid */
+.hours-grid {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: var(--hour-gap);
+}
+.hour-btn {
+  height: var(--hour-size);
+  border-radius: 8px;
+  border: 1px solid rgba(10,20,40,0.06);
+  background: #fff;
+  cursor: pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  color:#0b1730;
+  transition: transform .08s ease, box-shadow .12s ease, background .12s ease;
+}
+.hour-btn:hover { transform: translateY(-4px); box-shadow: 0 8px 20px rgba(6,12,22,0.06); }
+
+.hour-btn.booked {
+  background: linear-gradient(180deg,#f7f7ff,#f0f0ff);
+  color: #2b2b7a;
+  border: 1px solid rgba(18,25,110,0.06);
+  cursor: default;
+  opacity: .95;
+}
+.hour-btn.selected {
+  background: linear-gradient(90deg,#dbeffd,#bde2ff);
+  color: var(--accent-600);
+  border: 1px solid rgba(10,71,161,0.12);
+  box-shadow: 0 10px 30px rgba(10,71,161,0.06);
+}
+.hour-btn.free {
+  background: #fff;
+}
+
+/* booking list */
+.bookings-list { margin-top: 8px; display:flex; flex-direction:column; gap:8px; max-height: 220px; overflow:auto; padding-right:6px; }
+.booking-item { padding: 8px; border-radius: 8px; background: #fbfbfb; border: 1px solid rgba(0,0,0,0.03); }
+
+/* helpers */
+.muted { color: var(--muted); font-size: 13px; }
+.past-warning { color: #7a2d00; background: #fff5e6; padding: 8px; border-radius: 8px; }
+
+/* small footer tip */
+.edit-hall-page small.muted { display:block; margin-top:8px; color:var(--muted); }
+
+/* bookings/scrollbar polish */
+.hall-items::-webkit-scrollbar,
+.bookings-list::-webkit-scrollbar,
+.photos-row::-webkit-scrollbar {
+  width: 8px;
+}
+.hall-items::-webkit-scrollbar-thumb,
+.bookings-list::-webkit-scrollbar-thumb,
+.photos-row::-webkit-scrollbar-thumb {
+  background: rgba(10,20,40,0.06);
+  border-radius: 8px;
+}
+
+/* Photo modal (used from Manage page too) */
+.photo-modal {
+  position: fixed;
+  left: 0; top: 0; right: 0; bottom: 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(0,0,0,0.6);
+  z-index: 2400;
+}
+.photo-modal img { max-width: 92%; max-height: 86%; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+.photo-modal .close-btn {
+  position: absolute; right: 18px; top: 18px;
+  background: rgba(255,255,255,0.96); border-radius: 8px; border: none;
+  padding: 8px 10px; cursor: pointer; font-weight:700;
+  box-shadow: 0 6px 20px rgba(6,12,22,0.12);
+}
+
+/* small-screen adjustments (tablet) */
+@media (max-width: 1024px) and (min-width: 721px) {
+  .edit-hall-grid { grid-template-columns: 280px 1fr; gap: 12px; }
+  .hall-list { height: auto; max-height: 60vh; }
+  .hours-grid { grid-template-columns: repeat(4, 1fr); }
+  :root { --hour-size: 52px; }
+}
+
+/* mobile layout */
+@media (max-width: 720px) {
+  .edit-hall-grid { grid-template-columns: 1fr; }
+  .hall-list {
+    display: block;
+    overflow: auto;
+    height: auto;
+    padding-bottom: 8px;
+  }
+  .hall-items { display: flex; gap: 10px; overflow-x: auto; flex-direction: row; padding-bottom: 6px; }
+  .hall-item { min-width: 220px; flex-direction: column; align-items:flex-start; padding: 10px; }
+  .hall-thumb { width: 100%; height: 120px; border-radius: 10px; }
+  .hall-meta { width: 100%; }
+  .hall-detail { padding: 12px; }
+  .hours-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  :root { --hour-size: 48px; --hour-gap: 6px; }
+  .photos-row { gap: 6px; }
+  .photo-item { width: 96px; height: 64px; }
+  .detail-actions { display:flex; gap:6px; }
+}
+
+/* accessibility focus */
+.hall-item:focus, .hour-btn:focus, .btn:focus, .feat-chip:focus {
+  outline: 3px solid rgba(10,71,161,0.12);
+  outline-offset: 2px;
+}
+
+/* small util */
+.actions { display:flex; gap:8px; margin-top:8px; }
+
+
+
+
+
+
+
+
+/* ===== Reset unwanted spacing ===== */
+body, html {
+  margin: 0;
+  padding: 0;
+}
+
+/* Remove default margin from headings and sections */
+h1, h2, h3, h4, h5, h6,
+section, main {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Force all page containers to start tight under navbar */
+.page-container,
+.main-content,
+.content-wrapper {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
