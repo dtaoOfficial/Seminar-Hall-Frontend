@@ -43,27 +43,31 @@ const RequestsPage = () => {
 
   // Debounce filter updates
   useEffect(() => {
-    clearTimeout(debounceTimers.current.dept);
-    debounceTimers.current.dept = setTimeout(() => setSearchDept(searchDeptRaw), FILTER_DEBOUNCE_MS);
-    return () => clearTimeout(debounceTimers.current.dept);
+    const timers = debounceTimers.current;
+    clearTimeout(timers.dept);
+    timers.dept = setTimeout(() => setSearchDept(searchDeptRaw), FILTER_DEBOUNCE_MS);
+    return () => clearTimeout(timers.dept);
   }, [searchDeptRaw]);
 
   useEffect(() => {
-    clearTimeout(debounceTimers.current.date);
-    debounceTimers.current.date = setTimeout(() => setSearchDate(searchDateRaw), FILTER_DEBOUNCE_MS);
-    return () => clearTimeout(debounceTimers.current.date);
+    const timers = debounceTimers.current;
+    clearTimeout(timers.date);
+    timers.date = setTimeout(() => setSearchDate(searchDateRaw), FILTER_DEBOUNCE_MS);
+    return () => clearTimeout(timers.date);
   }, [searchDateRaw]);
 
   useEffect(() => {
-    clearTimeout(debounceTimers.current.slot);
-    debounceTimers.current.slot = setTimeout(() => setSearchSlot(searchSlotRaw), FILTER_DEBOUNCE_MS);
-    return () => clearTimeout(debounceTimers.current.slot);
+    const timers = debounceTimers.current;
+    clearTimeout(timers.slot);
+    timers.slot = setTimeout(() => setSearchSlot(searchSlotRaw), FILTER_DEBOUNCE_MS);
+    return () => clearTimeout(timers.slot);
   }, [searchSlotRaw]);
 
   useEffect(() => {
-    clearTimeout(debounceTimers.current.status);
-    debounceTimers.current.status = setTimeout(() => setStatusFilter(statusFilterRaw), FILTER_DEBOUNCE_MS);
-    return () => clearTimeout(debounceTimers.current.status);
+    const timers = debounceTimers.current;
+    clearTimeout(timers.status);
+    timers.status = setTimeout(() => setStatusFilter(statusFilterRaw), FILTER_DEBOUNCE_MS);
+    return () => clearTimeout(timers.status);
   }, [statusFilterRaw]);
 
   const normalizeSeminar = (s) => ({

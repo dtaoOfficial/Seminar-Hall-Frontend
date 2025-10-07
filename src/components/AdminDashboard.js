@@ -10,7 +10,7 @@ import AllDepartmentsPage from "../pages/Admin/AllDepartmentsPage";
 import ManageDepartmentsPage from "../pages/Admin/ManageDepartmentsPage";
 import ManageHallsPage from "../pages/Admin/ManageHallsPage.js";
 import ManageOperatorsPage from "../pages/ManageOperators";
-import UpdateSeminarPage from "../pages/Admin/UpdateSeminarPage";
+// UpdateSeminarPage import removed on purpose to avoid referencing a removed page
 import SeminarDetails from "../pages/Admin/SeminarDetails";
 import ExportPage from "../pages/Admin/ExportPage";
 
@@ -78,18 +78,6 @@ const normalizeSeminar = (s) => ({
   status: (s.status || "APPROVED").toString(),
   type: s.type || (s.startTime && s.endTime ? "time" : "day"),
   raw: s,
-});
-
-const normalizeOwner = (o) => ({
-  id: o._id ?? o.id ?? Math.random().toString(36).slice(2),
-  title: o.slotTitle || o.title || o.name || "Booked",
-  bookingName: o.bookingName || o.organizer || o.requesterName || o.userName || "--",
-  email: o.email || o.organizerEmail || "--",
-  department: o.department || o.dept || "",
-  startTime: o.startTime || o.start_time || o.from || "--",
-  endTime: o.endTime || o.end_time || o.to || "--",
-  status: (o.status || "APPROVED").toString(),
-  remarks: o.remarks || o.note || "",
 });
 
 /* ---------- small Modal for hall/day details ---------- */
@@ -361,7 +349,7 @@ const AdminDashboard = ({ user, setUser }) => {
         indicator: color,
       };
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [halls, seminars, selectedDate]);
 
   // modal helpers
@@ -385,7 +373,6 @@ const AdminDashboard = ({ user, setUser }) => {
 
   const quickReject = async (seminarId) => {
     try {
-      // ask for a short reason (simple prompt to avoid extra modal)
       const reason = window.prompt("Enter rejection remark (this will be saved):", "Rejected by Admin");
       if (reason === null) return; // cancelled
       await api.put(`/seminars/${seminarId}`, { status: "REJECTED", remarks: reason });
@@ -408,7 +395,7 @@ const AdminDashboard = ({ user, setUser }) => {
           <Route path="add-user" element={<AddUserPage />} />
           <Route path="add-seminar" element={<AddSeminarPage halls={halls} />} />
           <Route path="requests" element={<RequestsPage />} />
-          <Route path="update/:id" element={<UpdateSeminarPage />} />
+          {/* Update route removed (page intentionally removed) */}
           <Route path="seminars" element={<AllSeminarsPage seminars={seminars} />} />
           <Route path="departments" element={<AllDepartmentsPage />} />
           <Route path="manage-departments" element={<ManageDepartmentsPage />} />
@@ -697,8 +684,6 @@ const AdminDashboard = ({ user, setUser }) => {
 };
 
 /* ---------- small util used in render (placed after component to keep code tidy) ---------- */
-const DAY_START_MIN = 8 * 60;
-const DAY_END_MIN = 18 * 60;
 function formatMinutesLabel(mins) {
   const hh = Math.floor(mins / 60);
   const mm = mins % 60;

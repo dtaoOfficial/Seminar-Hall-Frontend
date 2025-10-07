@@ -98,13 +98,32 @@ const DeptDetails = () => {
   }, [preselectedHall]);
 
   useEffect(() => {
+    // call fetch
     fetchData();
+
+    // capture ref values into local variables so cleanup uses stable values
+    const savedOverflowSnapshot = savedBodyOverflow.current;
+    const savedScrollSnapshot = savedScrollY.current;
+    const notifTimerSnapshot = notifRef.current;
+
     return () => {
-      if (notifRef.current) clearTimeout(notifRef.current);
+      // clear any pending notification timer that was set before unmount
+      if (notifTimerSnapshot) {
+        try { clearTimeout(notifTimerSnapshot); } catch (e) {}
+      } else {
+        // If the ref changed and now points to a timer, still attempt to clear it safely
+        if (notifRef.current) {
+          try { clearTimeout(notifRef.current); } catch (e) {}
+        }
+      }
+
+      // restore body overflow & scroll using the captured snapshots
       try {
-        document.body.style.overflow = savedBodyOverflow.current || "";
-        window.scrollTo(0, savedScrollY.current || 0);
-      } catch {}
+        document.body.style.overflow = savedOverflowSnapshot || "";
+        window.scrollTo(0, savedScrollSnapshot || 0);
+      } catch (e) {
+        // ignore errors
+      }
     };
   }, [fetchData]);
 
@@ -177,13 +196,6 @@ const DeptDetails = () => {
     setNotification(msg);
     if (notifRef.current) clearTimeout(notifRef.current);
     if (ms > 0) notifRef.current = setTimeout(() => setNotification(""), ms);
-  };
-
-  const openViewer = (type, list, index = 0) => {
-    savedBodyOverflow.current = document.body.style.overflow || "";
-    savedScrollY.current = window.scrollY || window.pageYOffset || 0;
-    document.body.style.overflow = "hidden";
-    setViewer({ open: true, type, srcList: list || [], index: index || 0, autoplayMuted: type === "video" });
   };
 
   const closeViewer = async () => {
@@ -323,15 +335,6 @@ const DeptDetails = () => {
   const selectedHoursCount = selectedRange ? Math.max(0, selectedRange.end - selectedRange.start) : 0;
   const selectedStartTime = selectedRange ? `${String(selectedRange.start).padStart(2, "0")}:00` : "";
   const selectedEndTime = selectedRange ? `${String(selectedRange.end).padStart(2, "0")}:00` : "";
-
-  const toggleFeature = (feat) => {
-    setSelectedFeatures((prev) => {
-      const copy = new Set(prev);
-      if (copy.has(feat)) copy.delete(feat);
-      else copy.add(feat);
-      return copy;
-    });
-  };
 
   const selectAndReturn = () => {
     if (!selectedHall) return showNotification("Please select a hall first", 2500);

@@ -271,12 +271,12 @@ export default function AddSeminarPage() {
     setSelectedHallObj(obj || null);
   }, [selectedHall, halls]);
 
-  const isDateFullDayBlocked = (dateStr, hall) => {
+  const isDateFullDayBlocked = useCallback((dateStr, hall) => {
     const arr = bookedMap.get(dateStr) || [];
     return arr.some(b => (b.type === "day" || (b.startMin === 0 && b.endMin === 1440)) && (b.hallName === hall || String(b.hallId) === String(hall)));
-  };
+  }, [bookedMap]);
 
-  const checkTimeWiseAvailability = () => {
+  const checkTimeWiseAvailability = useCallback(() => {
     if (!selectedHall) return { ok:false, msg:"Please select a hall from the right." };
     if (!date) return { ok:false, msg:"Pick a date." };
     if (!startTime || !endTime) return { ok:false, msg:"Pick start & end times." };
@@ -318,9 +318,9 @@ export default function AddSeminarPage() {
     const conflictText = `Conflict: ${conflictMsgs.join(", ")}`;
     const suggestionText = suggestion != null ? `Try: ${to12Label(minutesToHHMM(suggestion))} — ${to12Label(minutesToHHMM(suggestion + needed))} on ${ds}` : `No alternative found on ${ds}`;
     return { ok:false, msg: `${conflictText}. ${suggestionText}` };
-  };
+  }, [selectedHall, date, startTime, endTime, bookedMap, isDateFullDayBlocked]);
 
-  const checkDayWiseAvailability = () => {
+  const checkDayWiseAvailability = useCallback(() => {
     if (!selectedHall) return { ok:false, msg:"Select a hall first." };
     if (!startDate || !endDate) return { ok:false, msg:"Select start & end dates." };
     const sd = new Date(startDate); sd.setHours(0,0,0,0);
@@ -374,9 +374,9 @@ export default function AddSeminarPage() {
       return { ok:false, msg };
     }
     return { ok:true, msg: `All selected days available (${ymd(sd)} → ${ymd(ed)})` };
-  };
+  }, [selectedHall, startDate, endDate, daySlots, bookedMap, isDateFullDayBlocked]);
 
-  const doCheckAvailability = async () => {
+  const doCheckAvailability = useCallback(async () => {
     setChecking(true);
     setLastCheckMessage("");
     setLastCheckOk(false);
@@ -393,7 +393,7 @@ export default function AddSeminarPage() {
     } finally {
       setChecking(false);
     }
-  };
+  }, [bookingMode, checkDayWiseAvailability, checkTimeWiseAvailability]);
 
   const autoCheckTimer = useRef(null);
   useEffect(() => {
@@ -401,7 +401,7 @@ export default function AddSeminarPage() {
     if (autoCheckTimer.current) clearTimeout(autoCheckTimer.current);
     autoCheckTimer.current = setTimeout(() => { doCheckAvailability(); }, 700);
     return () => { if (autoCheckTimer.current) clearTimeout(autoCheckTimer.current); };
-  }, [autoCheckEnabled, bookingMode, selectedHall, date, startTime, endTime, startDate, endDate, daySlots]);
+  }, [autoCheckEnabled, bookingMode, selectedHall, date, startTime, endTime, startDate, endDate, daySlots, doCheckAvailability]);
 
   const resetForm = () => {
     setSlotTitle("");
@@ -491,12 +491,6 @@ export default function AddSeminarPage() {
     } finally {
       setLoadingSubmit(false);
     }
-  };
-
-  const bookingCountForHallOn = (hallKey, dateObj) => {
-    const key = ymd(dateObj || new Date());
-    const arr = bookedMap.get(key) || [];
-    return arr.filter((b) => b.hallName === hallKey || String(b.hallId) === String(hallKey)).length;
   };
 
   const renderTinyHeatmap = (hallKey, dateObj) => {

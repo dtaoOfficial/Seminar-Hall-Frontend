@@ -80,11 +80,15 @@ const SeminarDetails = () => {
 
   useEffect(() => {
     fetchData();
+    // copy ref values into locals so cleanup uses stable values (avoids linter warning)
+    const savedOverflowAtEffect = savedBodyOverflow.current;
+    const savedScrollYAtEffect = savedScrollY.current;
+
     return () => {
       if (notifRef.current) clearTimeout(notifRef.current);
       try {
-        document.body.style.overflow = savedBodyOverflow.current || "";
-        window.scrollTo(0, savedScrollY.current || 0);
+        document.body.style.overflow = savedOverflowAtEffect || "";
+        window.scrollTo(0, savedScrollYAtEffect || 0);
       } catch {}
     };
   }, [fetchData]);
@@ -179,14 +183,6 @@ const SeminarDetails = () => {
     if (ms > 0) notifRef.current = setTimeout(() => setNotification(""), ms);
   };
 
-  // Viewer helpers...
-  const openViewer = (type, list, index = 0) => {
-    savedBodyOverflow.current = document.body.style.overflow || "";
-    savedScrollY.current = window.scrollY || window.pageYOffset || 0;
-    document.body.style.overflow = "hidden";
-    setViewer({ open: true, type, srcList: list || [], index: index || 0, autoplayMuted: type === "video" });
-  };
-
   const closeViewer = async () => {
     try {
       if (videoRef.current && !videoRef.current.paused) {
@@ -229,9 +225,7 @@ const SeminarDetails = () => {
     return () => document.removeEventListener("keydown", onKey);
   }, [viewer.open]);
 
-  // ... other viewer logic unchanged (autoplay, gestures) omitted here for brevity (kept same as you had)
-
-  // ---- HOUR SELECTION (unchanged logic but robust) ----
+  // HOUR SELECTION
   const hourClicked = (idx) => {
     // if booked, show booking details but do not allow selection
     if (bookedHours.has(idx)) {
@@ -296,15 +290,6 @@ const SeminarDetails = () => {
   const selectedStartTime = selectedRange ? `${String(selectedRange.start).padStart(2, "0")}:00` : "";
   const selectedEndTime = selectedRange ? `${String(selectedRange.end).padStart(2, "0")}:00` : "";
 
-  const toggleFeature = (feat) => {
-    setSelectedFeatures((prev) => {
-      const copy = new Set(prev);
-      if (copy.has(feat)) copy.delete(feat);
-      else copy.add(feat);
-      return copy;
-    });
-  };
-
   const selectAndReturn = () => {
     if (!selectedHall) return showNotification("Please select a hall first", 2500);
     if (selectedHoursCount === 0) return showNotification("Please select at least one hour", 2500);
@@ -354,7 +339,6 @@ const SeminarDetails = () => {
                     className={`w-full text-left flex items-center gap-3 p-3 rounded-lg border ${selectedHall === h.name ? "border-blue-300 bg-blue-50" : "border-gray-100 bg-white"} hover:shadow-sm transition`}
                     title={h.name}
                   >
-                    
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm text-gray-800 truncate">{h.name}</div>
                     </div>
