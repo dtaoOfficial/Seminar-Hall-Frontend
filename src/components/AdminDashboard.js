@@ -16,8 +16,8 @@ import ExportPage from "../pages/Admin/ExportPage";
 
 import { CSVLink } from "react-csv";
 import api from "../utils/api";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { useNotification } from "../components/NotificationsProvider";
+import { useTheme } from "../contexts/ThemeContext";
 
 /* ---------- helpers ---------- */
 // produce local YYYY-MM-DD (browser local timezone)
@@ -82,6 +82,9 @@ const normalizeSeminar = (s) => ({
 
 /* ---------- small Modal for hall/day details ---------- */
 const HallDayModal = ({ open, onClose, hallName, dateStr, seminars }) => {
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
+
   if (!open) return null;
   const relevant = (seminars || []).filter((s) => {
     const hn = (s.hallName || (s.hall && s.hall.name) || s.hall || "").toString();
@@ -101,32 +104,35 @@ const HallDayModal = ({ open, onClose, hallName, dateStr, seminars }) => {
   });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl bg-white rounded-lg shadow-lg p-5" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`w-full max-w-2xl rounded-lg shadow-lg p-5 ${isDtao ? "bg-[#0b0710] border border-violet-900 text-slate-100" : "bg-white border border-gray-100 text-slate-900"}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-slate-800">{hallName} — {dateStr}</h3>
-            <p className="text-sm text-slate-500 mt-1">Booked items on selected day</p>
+            <h3 className={`text-lg font-semibold ${isDtao ? "text-slate-100" : "text-slate-800"}`}>{hallName} — {dateStr}</h3>
+            <p className={`text-sm ${isDtao ? "text-slate-300" : "text-slate-500"} mt-1`}>Booked items on selected day</p>
           </div>
-          <button onClick={onClose} className="text-2xl text-slate-400 leading-none">×</button>
+          <button onClick={onClose} className={`${isDtao ? "text-slate-300" : "text-slate-400"} text-2xl leading-none`}>×</button>
         </div>
 
         <div className="mt-4 space-y-3 max-h-72 overflow-auto">
           {relevant.length === 0 ? (
-            <div className="text-sm text-slate-500">No bookings on this date.</div>
+            <div className={`text-sm ${isDtao ? "text-slate-300" : "text-slate-500"}`}>No bookings on this date.</div>
           ) : relevant.map((r, i) => {
             const n = normalizeSeminar(r);
             return (
-              <div key={n.id || i} className="p-3 rounded-md bg-slate-50 border border-gray-100">
+              <div key={n.id || i} className={`${isDtao ? "bg-black/40 border border-violet-800" : "bg-slate-50 border border-gray-100"} p-3 rounded-md`}>
                 <div className="flex justify-between items-start gap-3">
                   <div className="min-w-0">
-                    <div className="font-semibold text-slate-800">{n.slotTitle}</div>
-                    <div className="text-xs text-slate-600 mt-1">{n.bookingName}{n.department ? ` • ${n.department}` : ""}</div>
+                    <div className={`font-semibold ${isDtao ? "text-slate-100" : "text-slate-800"}`}>{n.slotTitle}</div>
+                    <div className={`text-xs ${isDtao ? "text-slate-300" : "text-slate-600"} mt-1`}>{n.bookingName}{n.department ? ` • ${n.department}` : ""}</div>
                   </div>
-                  <div className="text-xs text-slate-500 text-right">
+                  <div className={`text-xs ${isDtao ? "text-slate-300" : "text-slate-500"} text-right`}>
                     {n.startTime && n.endTime ? `${formatTime12(n.startTime)} — ${formatTime12(n.endTime)}` : "Full day"}
                   </div>
                 </div>
-                {n.raw?.remarks && <div className="text-xs text-slate-500 mt-2">Notes: {n.raw.remarks}</div>}
+                {n.raw?.remarks && <div className={`text-xs mt-2 ${isDtao ? "text-slate-300" : "text-slate-500"}`}>Notes: {n.raw.remarks}</div>}
               </div>
             );
           })}
@@ -139,6 +145,9 @@ const HallDayModal = ({ open, onClose, hallName, dateStr, seminars }) => {
 /* ---------- main component ---------- */
 const AdminDashboard = ({ user, setUser }) => {
   const navigate = useNavigate();
+  const { notify } = useNotification();
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
 
   const [seminars, setSeminars] = useState([]);
   const [halls, setHalls] = useState([]);
@@ -363,11 +372,11 @@ const AdminDashboard = ({ user, setUser }) => {
   const quickApprove = async (seminarId) => {
     try {
       await api.put(`/seminars/${seminarId}`, { status: "APPROVED", remarks: "Approved from dashboard" });
-      toast.success("Approved");
+      notify("✅ Approved", "success", 2000);
       await fetchSeminars();
     } catch (err) {
       console.error("approve err", err);
-      toast.error(err?.response?.data?.message || "Failed to approve");
+      notify(err?.response?.data?.message || "Failed to approve", "error", 3500);
     }
   };
 
@@ -376,18 +385,18 @@ const AdminDashboard = ({ user, setUser }) => {
       const reason = window.prompt("Enter rejection remark (this will be saved):", "Rejected by Admin");
       if (reason === null) return; // cancelled
       await api.put(`/seminars/${seminarId}`, { status: "REJECTED", remarks: reason });
-      toast.success("Rejected");
+      notify("Rejected", "success", 2000);
       await fetchSeminars();
     } catch (err) {
       console.error("reject err", err);
-      toast.error(err?.response?.data?.message || "Failed to reject");
+      notify(err?.response?.data?.message || "Failed to reject", "error", 3500);
     }
   };
 
   if (!user) return null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-50 to-white">
+    <div className={`min-h-screen flex flex-col transition-colors duration-700 ${isDtao ? "text-slate-100" : "text-slate-900"}`}>
       <Navbar user={user} handleLogout={handleLogout} />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 pt-20 pb-8 w-full">
@@ -411,9 +420,18 @@ const AdminDashboard = ({ user, setUser }) => {
                 {/* SUMMARY */}
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
                   {Object.entries(summaryCounts).map(([key, val]) => (
-                    <div key={key} className="bg-white shadow rounded-xl p-4 text-center transform transition hover:-translate-y-1">
-                      <p className="text-gray-600 font-medium">{key.charAt(0).toUpperCase() + key.slice(1)}</p>
-                      <p className="text-2xl font-bold text-blue-600">{val}</p>
+                    <div
+                      key={key}
+                      className={`rounded-xl p-4 text-center transform transition hover:-translate-y-1 ${
+                        isDtao
+                          ? "bg-black/40 border border-violet-800 shadow-lg"
+                          : "bg-white shadow"
+                      }`}
+                    >
+                      <p className={`${isDtao ? "text-slate-300" : "text-gray-600"} font-medium`}>
+                        {key.charAt(0).toUpperCase() + key.slice(1)}
+                      </p>
+                      <p className={`${isDtao ? "text-violet-300" : "text-blue-600"} text-2xl font-bold`}>{val}</p>
                     </div>
                   ))}
                 </div>
@@ -422,11 +440,11 @@ const AdminDashboard = ({ user, setUser }) => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                   {/* LEFT: Day-wise availability */}
                   <div className="space-y-6">
-                    <div className="bg-white shadow rounded-xl p-6">
+                    <div className={`${isDtao ? "bg-black/50 border border-violet-900 text-slate-100" : "bg-white"} rounded-xl p-6 shadow`}>
                       <div className="flex items-center justify-between gap-4 mb-4">
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-800">Day-wise Availability</h3>
-                          <p className="text-sm text-gray-500 mt-1">Select a date to inspect halls for that day</p>
+                          <h3 className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-lg font-semibold`}>Day-wise Availability</h3>
+                          <p className={`${isDtao ? "text-slate-300" : "text-gray-500"} text-sm mt-1`}>Select a date to inspect halls for that day</p>
                         </div>
 
                         <div className="flex items-center gap-3">
@@ -434,16 +452,16 @@ const AdminDashboard = ({ user, setUser }) => {
                             type="date"
                             value={selectedDate}
                             onChange={(e) => setSelectedDate(e.target.value)}
-                            className="rounded-md border border-gray-200 px-3 py-2 bg-white text-slate-800"
+                            className={`rounded-md border px-3 py-2 ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : "border-gray-200 bg-white text-slate-800"}`}
                           />
                         </div>
                       </div>
 
                       <div className="space-y-3">
                         {loading ? (
-                          <div className="text-sm text-gray-500">Loading halls & seminars…</div>
+                          <div className={`${isDtao ? "text-slate-300" : "text-gray-500"} text-sm`}>Loading halls & seminars…</div>
                         ) : (dayAvailability.length === 0) ? (
-                          <div className="text-sm text-gray-500">No halls configured</div>
+                          <div className={`${isDtao ? "text-slate-300" : "text-gray-500"} text-sm`}>No halls configured</div>
                         ) : (
                           dayAvailability.map((d) => {
                             const pct = d.percentFree;
@@ -453,26 +471,26 @@ const AdminDashboard = ({ user, setUser }) => {
                                                     "bg-gradient-to-r from-rose-500 to-red-500";
 
                             return (
-                              <div key={d.key} className="bg-white rounded-lg border border-gray-100 p-4 shadow-sm transition transform hover:scale-[1.01]">
+                              <div key={d.key} className={`${isDtao ? "bg-black/40 border border-violet-800" : "bg-white"} rounded-lg p-4 shadow-sm transition transform hover:scale-[1.01]`}>
                                 <div className="flex items-start justify-between gap-4">
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-3">
                                       <div className={`w-3 h-3 rounded-full ${d.indicator === "green" ? "bg-emerald-500" : d.indicator === "orange" ? "bg-orange-500" : "bg-rose-600"} transition`} />
-                                      <div className="text-sm font-semibold text-slate-800 truncate">{d.hall.name || d.hall.title || d.hallName || d.key}</div>
+                                      <div className={`${isDtao ? "text-slate-100" : "text-slate-800"} text-sm font-semibold truncate`}>{d.hall.name || d.hall.title || d.hallName || d.key}</div>
                                     </div>
-                                    <div className="text-xs text-slate-500 mt-1">{statusLabel}</div>
+                                    <div className={`${isDtao ? "text-slate-300" : "text-slate-500"} text-xs mt-1`}>{statusLabel}</div>
 
                                     {/* free ranges */}
                                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
                                       {d.fullDay ? (
-                                        <div className="col-span-1 sm:col-span-3 text-sm text-rose-600 font-semibold">Full-day booked — Not available</div>
+                                        <div className={`col-span-1 sm:col-span-3 text-sm font-semibold ${isDtao ? "text-rose-400" : "text-rose-600"}`}>Full-day booked — Not available</div>
                                       ) : d.free.length === 0 ? (
-                                        <div className="col-span-1 sm:col-span-3 text-sm text-rose-600 font-semibold">No free slots (day fully occupied)</div>
+                                        <div className={`col-span-1 sm:col-span-3 text-sm font-semibold ${isDtao ? "text-rose-400" : "text-rose-600"}`}>No free slots (day fully occupied)</div>
                                       ) : (
                                         d.free.map(([s,e], idx) => (
-                                          <div key={idx} className="rounded-lg border border-gray-100 p-2 bg-white/60 shadow-sm flex items-center justify-between">
-                                            <div className="text-sm font-medium text-slate-800">{formatMinutesLabel(s)} — {formatMinutesLabel(e)}</div>
-                                            <div className="text-xs text-slate-500">{Math.round(((e-s)/(DAY_END_MIN-DAY_START_MIN))*100)}%</div>
+                                          <div key={idx} className={`rounded-lg border p-2 ${isDtao ? "border-violet-800 bg-black/30" : "border-gray-100 bg-white/60"} shadow-sm flex items-center justify-between`}>
+                                            <div className={`${isDtao ? "text-slate-100" : "text-slate-800"} text-sm font-medium`}>{formatMinutesLabel(s)} — {formatMinutesLabel(e)}</div>
+                                            <div className={`${isDtao ? "text-slate-300" : "text-slate-500"} text-xs`}>{Math.round(((e-s)/(DAY_END_MIN-DAY_START_MIN))*100)}%</div>
                                           </div>
                                         ))
                                       )}
@@ -482,18 +500,18 @@ const AdminDashboard = ({ user, setUser }) => {
                                   <div className="flex flex-col items-end gap-2">
                                     <div className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${indicatorStyle}`}>{d.indicator === "green" ? "Available" : d.indicator === "orange" ? "Partially" : "Blocked"}</div>
                                     <div className="flex gap-2">
-                                      <button onClick={() => openHallModal(d.key)} className="px-3 py-1 rounded-md bg-white border text-xs hover:bg-gray-50">View Bookings</button>
-                                      <button onClick={() => { setSelectedDate(localISODate()); }} className="px-3 py-1 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700">Today</button>
+                                      <button onClick={() => openHallModal(d.key)} className={`${isDtao ? "bg-transparent border border-violet-700 text-slate-100 hover:bg-black/40" : "bg-white border text-xs hover:bg-gray-50"} px-3 py-1 rounded-md text-xs`}>View Bookings</button>
+                                      <button onClick={() => { setSelectedDate(localISODate()); }} className={`${isDtao ? "bg-violet-600 hover:bg-violet-500 text-white" : "bg-indigo-600 text-white hover:bg-indigo-700"} px-3 py-1 rounded-md text-xs`}>Today</button>
                                     </div>
                                   </div>
                                 </div>
 
                                 {/* tiny heatmap */}
                                 <div className="mt-4">
-                                  <div className="h-3 rounded-md overflow-hidden bg-gray-100">
+                                  <div className={`${isDtao ? "bg-black/30" : "bg-gray-100"} h-3 rounded-md overflow-hidden`}>
                                     <div className="h-full transition-all" style={{ width: `${d.percentFree}%`, background: d.indicator === "green" ? "linear-gradient(90deg,#34d399,#06b6d4)" : d.indicator === "orange" ? "linear-gradient(90deg,#fb923c,#f59e0b)" : "linear-gradient(90deg,#fb7185,#ef4444)" }} />
                                   </div>
-                                  <div className="mt-2 text-xs text-slate-500">Green → free, Orange → partial, Red → blocked</div>
+                                  <div className={`${isDtao ? "text-slate-300" : "text-slate-500"} mt-2 text-xs`}>Green → free, Orange → partial, Red → blocked</div>
                                 </div>
                               </div>
                             );
@@ -503,23 +521,23 @@ const AdminDashboard = ({ user, setUser }) => {
                     </div>
 
                     {/* Pending requests */}
-                    <div className="bg-white shadow rounded-xl p-6">
+                    <div className={`${isDtao ? "bg-black/50 border border-violet-900 text-slate-100" : "bg-white"} rounded-xl p-6 shadow`}>
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-md font-semibold text-gray-800">Top 5 Pending Requests</h4>
-                        <button onClick={() => navigate("/admin/requests")} className="text-sm text-blue-600 font-semibold">View all</button>
+                        <h4 className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-md font-semibold`}>Top 5 Pending Requests</h4>
+                        <button onClick={() => navigate("/admin/requests")} className={`${isDtao ? "text-violet-300" : "text-blue-600"} text-sm font-semibold`}>View all</button>
                       </div>
 
                       {!isMobile ? (
-                        pendingRequests.length === 0 ? <div className="text-sm text-gray-500">No pending requests</div> : (
+                        pendingRequests.length === 0 ? <div className={`${isDtao ? "text-slate-300" : "text-gray-500"} text-sm`}>No pending requests</div> : (
                           <ul className="space-y-3">
                             {pendingRequests.map((p, idx) => (
-                              <li key={p.id ?? idx} className="flex items-center justify-between bg-gray-50 rounded-md p-3">
+                              <li key={p.id ?? idx} className={`${isDtao ? "bg-black/30 border border-violet-800" : "bg-gray-50"} flex items-center justify-between rounded-md p-3`}>
                                 <div className="min-w-0">
-                                  <div className="text-sm font-semibold text-blue-700 truncate">{p.hallName || "--"}</div>
-                                  <div className="text-sm text-gray-700 truncate">{p.slotTitle || "--"}</div>
+                                  <div className={`${isDtao ? "text-violet-200" : "text-blue-700"} text-sm font-semibold truncate`}>{p.hallName || "--"}</div>
+                                  <div className={`${isDtao ? "text-slate-100" : "text-gray-700"} text-sm truncate`}>{p.slotTitle || "--"}</div>
                                 </div>
 
-                                <div className="text-right text-sm text-gray-500">
+                                <div className={`text-right text-sm ${isDtao ? "text-slate-300" : "text-gray-500"}`}>
                                   <div>{safeDate(p.date)}</div>
                                   <div>{p.bookingName || "--"}</div>
                                   <div className="mt-2 flex gap-2 justify-end">
@@ -532,17 +550,17 @@ const AdminDashboard = ({ user, setUser }) => {
                           </ul>
                         )
                       ) : (
-                        pendingRequests.length === 0 ? <div className="text-sm text-gray-500">No pending requests</div> : (
+                        pendingRequests.length === 0 ? <div className={`${isDtao ? "text-slate-300" : "text-gray-500"} text-sm`}>No pending requests</div> : (
                           <div className="space-y-3">
                             {pendingRequests.map((p, idx) => (
-                              <div key={p.id ?? idx} className="bg-gray-50 rounded-lg p-3 shadow-sm">
+                              <div key={p.id ?? idx} className={`${isDtao ? "bg-black/30 border border-violet-800" : "bg-gray-50"} rounded-lg p-3 shadow-sm`}>
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <div className="text-sm font-semibold text-blue-700 truncate">{p.hallName || "--"}</div>
-                                    <div className="text-sm text-gray-700 truncate">{p.slotTitle || "--"}</div>
-                                    <div className="text-xs text-gray-500 mt-1">{p.bookingName || "--"}</div>
+                                    <div className={`${isDtao ? "text-violet-200" : "text-blue-700"} text-sm font-semibold truncate`}>{p.hallName || "--"}</div>
+                                    <div className={`${isDtao ? "text-slate-100" : "text-gray-700"} text-sm truncate`}>{p.slotTitle || "--"}</div>
+                                    <div className={`${isDtao ? "text-slate-300" : "text-xs text-gray-500"} mt-1`}>{p.bookingName || "--"}</div>
                                   </div>
-                                  <div className="text-xs text-gray-500 text-right">{safeDate(p.date)}</div>
+                                  <div className={`${isDtao ? "text-slate-300" : "text-xs text-gray-500"} text-right`}>{safeDate(p.date)}</div>
                                 </div>
                                 <div className="mt-2 flex gap-2">
                                   <button onClick={() => quickApprove(p.id)} className="px-3 py-1 rounded-md bg-green-600 text-white text-xs font-semibold">Approve</button>
@@ -559,11 +577,11 @@ const AdminDashboard = ({ user, setUser }) => {
 
                   {/* RIGHT: recent seminars */}
                   <aside className="space-y-4">
-                    <div className="bg-white rounded-xl shadow p-4">
+                    <div className={`${isDtao ? "bg-black/50 border border-violet-900 text-slate-100" : "bg-white"} rounded-xl shadow p-4`}>
                       <div className="flex items-start justify-between">
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-800">Recent Seminars</h3>
-                          <p className="text-xs text-gray-500 mt-1">Latest bookings & activity</p>
+                          <h3 className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-lg font-semibold`}>Recent Seminars</h3>
+                          <p className={`${isDtao ? "text-slate-300" : "text-xs text-gray-500"} mt-1`}>Latest bookings & activity</p>
                         </div>
 
                         <div className="flex gap-2 items-center ml-4">
@@ -576,7 +594,7 @@ const AdminDashboard = ({ user, setUser }) => {
                               { label: "Date", key: "date" },
                             ]}
                             filename="recent_seminars.csv"
-                            className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-semibold"
+                            className={`${isDtao ? "px-3 py-1.5 rounded-md bg-violet-600 text-white text-sm font-semibold" : "px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-semibold"}`}
                           >
                             Export CSV
                           </CSVLink>
@@ -585,18 +603,18 @@ const AdminDashboard = ({ user, setUser }) => {
 
                       <div className="mt-4">
                         {loading ? (
-                          <div className="text-sm text-gray-500">Loading…</div>
+                          <div className={`${isDtao ? "text-slate-300" : "text-gray-500"} text-sm`}>Loading…</div>
                         ) : error ? (
-                          <div className="text-sm text-rose-600">{error}</div>
+                          <div className={`${isDtao ? "text-rose-400" : "text-rose-600"} text-sm`}>{error}</div>
                         ) : recentSeminars.length === 0 ? (
-                          <div className="text-sm text-gray-500">No recent seminars.</div>
+                          <div className={`${isDtao ? "text-slate-300" : "text-gray-500"} text-sm`}>No recent seminars.</div>
                         ) : (
                           <>
                             {!isMobile && (
                               <div className="overflow-x-auto">
-                                <table className="w-full text-sm table-fixed">
+                                <table className={`w-full text-sm table-fixed ${isDtao ? "bg-transparent" : ""}`}>
                                   <thead>
-                                    <tr className="bg-blue-800 text-white">
+                                    <tr className={`${isDtao ? "bg-violet-900 text-violet-100" : "bg-blue-800 text-white"}`}>
                                       <th className="p-2 text-left w-1/5">Hall</th>
                                       <th className="p-2 text-left w-2/5">Title</th>
                                       <th className="p-2 text-left w-1/5">Booked By</th>
@@ -607,17 +625,17 @@ const AdminDashboard = ({ user, setUser }) => {
                                     {recentSeminars.map((s, i) => (
                                       <tr key={s.id ?? i} className="border-b last:border-b-0">
                                         <td className="p-2 align-top max-w-[160px]">
-                                          <div className="text-sm text-gray-800 truncate">{s.hallName}</div>
+                                          <div className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-sm truncate`}>{s.hallName}</div>
                                         </td>
                                         <td className="p-2 align-top">
-                                          <div className="font-semibold text-gray-800 line-clamp-2">{s.slotTitle}</div>
-                                          <div className="text-xs text-gray-500 mt-1">{s.bookingName ? `${s.bookingName}${s.department ? ` • ${s.department}` : ""}` : ""}</div>
+                                          <div className={`${isDtao ? "text-slate-100" : "font-semibold text-gray-800"} font-semibold line-clamp-2`}>{s.slotTitle}</div>
+                                          <div className={`${isDtao ? "text-slate-300" : "text-xs text-gray-500"} mt-1`}>{s.bookingName ? `${s.bookingName}${s.department ? ` • ${s.department}` : ""}` : ""}</div>
                                         </td>
                                         <td className="p-2 align-top">
-                                          <div className="text-sm text-gray-800">{s.bookingName}</div>
+                                          <div className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-sm`}>{s.bookingName}</div>
                                         </td>
                                         <td className="p-2 align-top">
-                                          <div className="text-sm text-gray-700">{safeDate(s.date)}</div>
+                                          <div className={`${isDtao ? "text-slate-300" : "text-gray-700"} text-sm`}>{safeDate(s.date)}</div>
                                         </td>
                                       </tr>
                                     ))}
@@ -629,13 +647,13 @@ const AdminDashboard = ({ user, setUser }) => {
                             {isMobile && (
                               <div className="space-y-3">
                                 {recentSeminars.map((s, i) => (
-                                  <div key={s.id ?? i} className="bg-gray-50 rounded-lg shadow p-4 flex flex-col gap-2">
+                                  <div key={s.id ?? i} className={`${isDtao ? "bg-black/30 border border-violet-800" : "bg-gray-50"} rounded-lg shadow p-4 flex flex-col gap-2`}>
                                     <div className="flex justify-between items-center">
-                                      <div className="font-semibold text-blue-700 truncate">{s.hallName}</div>
-                                      <div className="text-xs text-gray-500">{safeDate(s.date)}</div>
+                                      <div className={`${isDtao ? "text-violet-200" : "text-blue-700"} font-semibold truncate`}>{s.hallName}</div>
+                                      <div className={`${isDtao ? "text-slate-300" : "text-gray-500"} text-xs`}>{safeDate(s.date)}</div>
                                     </div>
-                                    <div className="text-sm font-semibold text-gray-800 line-clamp-2">{s.slotTitle}</div>
-                                    <div className="text-xs text-gray-600">{s.bookingName} {s.department ? `• ${s.department}` : ""}</div>
+                                    <div className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-sm font-semibold line-clamp-2`}>{s.slotTitle}</div>
+                                    <div className={`${isDtao ? "text-slate-300" : "text-gray-600"} text-xs`}>{s.bookingName} {s.department ? `• ${s.department}` : ""}</div>
                                     <div className="mt-2 flex gap-2">
                                       <button onClick={() => navigate("/admin/seminar-details", { state: { seminarId: s.id } })} className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-semibold">Details</button>
                                     </div>
@@ -653,10 +671,10 @@ const AdminDashboard = ({ user, setUser }) => {
                 <div className="h-6" />
 
                 {/* Footer */}
-                <footer className="mt-8 text-center text-sm text-gray-600">
+                <footer className={`${isDtao ? "text-slate-400" : "text-gray-600"} mt-8 text-center text-sm`}>
                   <div>Created by DTAOofficial</div>
                   <div className="mt-1">
-                    <a href="https://dtaoofficial.netlify.app/" target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                    <a href="https://dtaoofficial.netlify.app/" target="_blank" rel="noreferrer" className={`${isDtao ? "text-violet-300" : "text-blue-600"} hover:underline`}>
                       https://dtaoofficial.netlify.app/
                     </a>
                   </div>
@@ -676,9 +694,6 @@ const AdminDashboard = ({ user, setUser }) => {
           />
         </Routes>
       </main>
-
-      {/* Toasts */}
-      <ToastContainer position="top-right" autoClose={2500} />
     </div>
   );
 };

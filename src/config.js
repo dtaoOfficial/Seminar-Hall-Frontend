@@ -1,9 +1,10 @@
 // src/config.js
-const envApiUrl =
-  process.env.REACT_APP_API_URL ?? process.env.VITE_API_URL ?? "http://localhost:8080";
+// Single source of truth for frontend → backend URL
+const RAW = process.env.REACT_APP_API_URL;
 
-const API_BASE_URL = envApiUrl.endsWith("/api")
-  ? envApiUrl.replace(/\/+$/, "") // keep /api but remove extra slashes
-  : envApiUrl.replace(/\/+$/, "") + "/api"; // ensure single trailing /api
+const trimTrailing = (s = "") => s.replace(/\/+$/, "");
 
-export default API_BASE_URL;
+export const API_BASE_URL = trimTrailing(RAW);   // e.g. http://localhost:8080
+export const API_BASE = `${API_BASE_URL}/api`;    // e.g. http://localhost:8080/api
+
+export default API_BASE;

@@ -7,13 +7,19 @@ import DeptSlotBooking from "../pages/Dept/AddSeminarPage"; // dept form (slot b
 import DeptStatus from "../pages/Dept/DeptStatus";
 import DeptHistory from "../pages/Dept/DeptHistory";
 import DeptDetails from "../pages/Dept/DeptDetails"; // new details for dept
-// no extra CSS required, Tailwind used globally
-// import "../styles/DeptDashboard.css";
+import { useTheme } from "../contexts/ThemeContext";
+
+/**
+ * DeptDashboard — theme-aware (dtao) version
+ * No logic or endpoints changed; only styling adapted for dark theme.
+ */
 
 const DeptDashboard = ({ user, setUser }) => {
   const navigate = useNavigate();
   const [restored, setRestored] = useState(false);
   const [checking, setChecking] = useState(true);
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
 
   // restore user from localStorage if not provided
   useEffect(() => {
@@ -33,7 +39,7 @@ const DeptDashboard = ({ user, setUser }) => {
       }
     }
     setRestored(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // enforce department-only access once restore complete
@@ -67,13 +73,13 @@ const DeptDashboard = ({ user, setUser }) => {
   // while we ensure restoration and role check complete, show nothing (or a small loader)
   if (!restored || checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center p-6 bg-white rounded shadow">
-          <svg className="w-8 h-8 mx-auto animate-spin text-gray-600" viewBox="0 0 24 24" fill="none">
+      <div className={`min-h-screen flex items-center justify-center ${isDtao ? "bg-[#08050b]" : "bg-gray-50"}`}>
+        <div className={`${isDtao ? "bg-black/60 border border-violet-900 text-slate-100" : "bg-white"} text-center p-6 rounded shadow`}>
+          <svg className={`${isDtao ? "text-slate-300" : "text-gray-600"} w-8 h-8 mx-auto animate-spin`} viewBox="0 0 24 24" fill="none" aria-hidden>
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" strokeOpacity="0.25"></circle>
             <path d="M22 12a10 10 0 00-10-10" stroke="currentColor" strokeWidth="4" strokeLinecap="round"></path>
           </svg>
-          <p className="mt-3 text-sm text-gray-600">Preparing dashboard…</p>
+          <p className={`${isDtao ? "text-slate-300" : "mt-3 text-sm text-gray-600"} mt-3 text-sm`}>Preparing dashboard…</p>
         </div>
       </div>
     );
@@ -82,7 +88,7 @@ const DeptDashboard = ({ user, setUser }) => {
   // main content padding to account for fixed navbar (Navbar uses a 64-72px header)
   // keep this CSS hook inlined so consumers don't need a separate stylesheet
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`${isDtao ? "min-h-screen bg-[#08050b] text-slate-100" : "min-h-screen bg-gray-50 text-slate-900"}`}>
       <Navbar user={user} handleLogout={handleLogout} />
 
       <main

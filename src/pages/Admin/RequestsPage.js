@@ -1,13 +1,98 @@
 // src/pages/RequestsPage.js
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import api from "../../utils/api";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { useNotification } from "../../components/NotificationsProvider";
+import { useTheme } from "../../contexts/ThemeContext";
 
 const POLL_INTERVAL_MS = 10000; // 10s
 const FILTER_DEBOUNCE_MS = 400;
 
+/* ---------- Small accessible Dropdown (replaces native select) ----------
+   same implementation used in other pages (keyboard support, aria, theme-aware)
+*/
+function Dropdown({ options = [], value, onChange, className = "", ariaLabel = "Select", placeholder = "" }) {
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  const normalized = options.map((o) => (typeof o === "string" ? { value: o, label: o } : { value: o.value, label: o.label ?? o.value }));
+  const selectedLabel = (normalized.find((o) => String(o.value) === String(value)) || {}).label ?? "";
+
+  useEffect(() => {
+    function onDoc(e) {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  const onKeyDownRoot = (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setOpen((s) => !s);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
+  const onOptionKey = (e, opt) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onChange(opt.value);
+      setOpen(false);
+    }
+  };
+
+  return (
+    <div ref={ref} className={`relative inline-block w-full ${className}`}>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        onClick={() => setOpen((s) => !s)}
+        onKeyDown={onKeyDownRoot}
+        className={`w-full text-left rounded-md px-3 py-2 border flex items-center justify-between ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : "bg-white border-gray-200 text-gray-800"}`}
+      >
+        <span className={`${selectedLabel ? "" : (isDtao ? "text-slate-400" : "text-gray-400")}`}>{selectedLabel || placeholder}</span>
+        <svg className={`w-4 h-4 ml-2 ${isDtao ? "text-slate-300" : "text-slate-600"}`} viewBox="0 0 24 24" fill="none">
+          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          tabIndex={-1}
+          className={`absolute z-50 mt-1 w-full rounded-md shadow-lg ${isDtao ? "bg-black/80 border border-violet-800 text-slate-100" : "bg-white border"}`}
+          style={{ maxHeight: `${5 * 40}px`, overflowY: "auto" }}
+        >
+          {normalized.map((opt) => (
+            <div
+              key={opt.value}
+              role="option"
+              aria-selected={String(opt.value) === String(value)}
+              tabIndex={0}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              onKeyDown={(e) => onOptionKey(e, opt)}
+              className={`px-3 py-2 cursor-pointer ${isDtao ? "hover:bg-violet-900/60" : "hover:bg-gray-100"} ${String(opt.value) === String(value) ? (isDtao ? "bg-violet-900/70 font-medium" : "bg-blue-50 font-medium") : ""}`}
+            >
+              {opt.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Page ---------- */
 const RequestsPage = () => {
+  const { notify } = useNotification();
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
+
   const [items, setItems] = useState([]);
 
   // filters (raw + debounced)
@@ -33,6 +118,8 @@ const RequestsPage = () => {
   const debounceTimers = useRef({});
 
   const [rejectModal, setRejectModal] = useState({ open: false, normId: null });
+  const mainRef = useRef(null);
+  const rejectTextareaRef = useRef(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -121,7 +208,7 @@ const RequestsPage = () => {
       try {
         const sRes = await api.get("/seminars");
         if (!Array.isArray(sRes.data)) {
-          if (!silent) toast.error("Unexpected seminars response");
+          if (!silent) notify("Unexpected seminars response", "error", 3000);
           if (mountedRef.current) setItems([]);
           return;
         }
@@ -141,8 +228,8 @@ const RequestsPage = () => {
         }
 
         if (!silent && prevIds.size > 0 && newlyAdded.length > 0) {
-          // toast + play sound + emit event
-          toast.info(`${newlyAdded.length} new request(s)`, { autoClose: 3500 });
+          // notify + play sound + emit event
+          notify(`${newlyAdded.length} new request(s)`, "info", 3500);
           playNotificationSound(Math.min(newlyAdded.length, 2));
           emitNewRequestsEvent(newlyAdded.length);
 
@@ -186,13 +273,20 @@ const RequestsPage = () => {
           });
           setItems(seminars);
           setLastUpdated(new Date());
+
+          // scroll into view when data refreshed so user notices new requests
+          if (mainRef.current && mainRef.current.scrollIntoView) {
+            try {
+              mainRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+            } catch (e) {}
+          }
         }
       } catch (err) {
         console.error("Error fetching seminars:", err?.response || err);
-        if (!silent) toast.error("Failed to fetch seminars");
+        if (!silent) notify("Failed to fetch seminars", "error", 3000);
       }
     },
-    []
+    [notify]
   );
 
   useEffect(() => {
@@ -204,29 +298,28 @@ const RequestsPage = () => {
     };
   }, [fetchAll]);
 
-  // === keep your original action functions (unchanged logic) ===
+  // === action functions (kept same logic) ===
   const saveRemarks = async (normId) => {
     const remarks = (remarksMap[normId] ?? "").trim();
     if (!normId) return;
     const [, rawId] = normId.split("-", 2);
     try {
       await api.put(`/seminars/${rawId}`, { remarks });
-      toast.success("Remarks saved");
+      notify("Remarks saved", "success", 2200);
       await fetchAll(true);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to save remarks");
+      notify(err?.response?.data?.message || "Failed to save remarks", "error", 3500);
     }
   };
 
   const handleApprove = async (normId) => {
     const [, rawId] = normId.split("-", 2);
-    const remarks = (remarksMap[normId] ?? "").trim();
     try {
-      await api.put(`/seminars/${rawId}`, { status: "APPROVED", remarks });
-      toast.success("Request approved");
+      await api.put(`/seminars/${rawId}`, { status: "APPROVED", remarks: (remarksMap[normId] ?? "").trim() });
+      notify("Request approved", "success", 2200);
       await fetchAll(true);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to approve");
+      notify(err?.response?.data?.message || "Failed to approve", "error", 3500);
     }
   };
 
@@ -234,15 +327,15 @@ const RequestsPage = () => {
     const [, rawId] = normId.split("-", 2);
     const remarks = (remarksMap[normId] ?? "").trim();
     if (!remarks) {
-      toast.warn("Enter remarks before rejecting");
+      notify("Enter remarks before rejecting", "warn", 2200);
       return;
     }
     try {
       await api.put(`/seminars/${rawId}`, { status: "REJECTED", remarks });
-      toast.success("Request rejected");
+      notify("Request rejected", "success", 2200);
       await fetchAll(true);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to reject");
+      notify(err?.response?.data?.message || "Failed to reject", "error", 3500);
     }
   };
 
@@ -251,7 +344,7 @@ const RequestsPage = () => {
     const remarks = (remarksMap[normId] ?? "").trim() || "Cancellation confirmed";
     try {
       await api.put(`/seminars/${rawId}`, { status: "CANCELLED", remarks });
-      toast.success("Cancel confirmed");
+      notify("Cancel confirmed", "success", 2200);
       setNewIdsSet((prev) => {
         const next = new Set(prev);
         next.delete(normId);
@@ -259,7 +352,7 @@ const RequestsPage = () => {
       });
       await fetchAll(true);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to confirm cancel");
+      notify(err?.response?.data?.message || "Failed to confirm cancel", "error", 3500);
     }
   };
 
@@ -268,7 +361,7 @@ const RequestsPage = () => {
     const remarks = (remarksMap[normId] ?? "").trim() || "Cancellation rejected";
     try {
       await api.put(`/seminars/${rawId}`, { status: "APPROVED", remarks });
-      toast.success("Cancel rejected");
+      notify("Cancel rejected", "success", 2200);
       setNewIdsSet((prev) => {
         const next = new Set(prev);
         next.delete(normId);
@@ -276,7 +369,7 @@ const RequestsPage = () => {
       });
       await fetchAll(true);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to reject cancel");
+      notify(err?.response?.data?.message || "Failed to reject cancel", "error", 3500);
     }
   };
 
@@ -320,12 +413,22 @@ const RequestsPage = () => {
     return <span className={`${base} bg-gray-50 text-gray-700`}>{st || "—"}</span>;
   };
 
+  // ensure reject textarea is focused when modal opens
+  useEffect(() => {
+    if (rejectModal.open && rejectTextareaRef.current) {
+      try {
+        rejectTextareaRef.current.focus({ preventScroll: true });
+        rejectTextareaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      } catch (e) {}
+    }
+  }, [rejectModal.open]);
+
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+    <div ref={mainRef} className={`p-4 md:p-6 max-w-7xl mx-auto ${isDtao ? "text-slate-100" : "text-slate-900"}`}>
       {/* Tight header */}
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-900">Booking Requests & Cancels</h2>
-        <div className="text-sm text-slate-600">
+        <h2 className={`text-2xl font-bold ${isDtao ? "text-slate-100" : "text-slate-900"}`}>Booking Requests & Cancels</h2>
+        <div className={`${isDtao ? "text-slate-400" : "text-sm text-slate-600"}`}>
           {lastUpdated ? `Last updated: ${lastUpdated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "—"}
         </div>
       </div>
@@ -337,37 +440,46 @@ const RequestsPage = () => {
           placeholder="Department"
           value={searchDeptRaw}
           onChange={(e) => setSearchDeptRaw(e.target.value)}
-          className="col-span-1 md:col-span-2 p-2 rounded-lg border border-white/10 glass-pill text-slate-900"
+          className={`${isDtao ? "col-span-1 md:col-span-2 p-2 rounded-lg border border-violet-700 bg-transparent text-slate-200" : "col-span-1 md:col-span-2 p-2 rounded-lg border border-gray-200 text-slate-900"}`}
         />
+
         <input
           type="date"
           value={searchDateRaw}
           onChange={(e) => setSearchDateRaw(e.target.value)}
-          className="p-2 rounded-lg border border-white/10 glass-pill text-slate-900"
+          className={`${isDtao ? "p-2 rounded-lg border border-violet-700 bg-transparent text-slate-200" : "p-2 rounded-lg border border-gray-200 text-slate-900"}`}
         />
-        <select
-          value={searchSlotRaw}
-          onChange={(e) => setSearchSlotRaw(e.target.value)}
-          className="p-2 rounded-lg border border-white/10 glass-pill text-slate-900"
-        >
-          <option value="">All Slots</option>
-          <option value="Morning">Morning</option>
-          <option value="Afternoon">Afternoon</option>
-          <option value="Full Day">Full Day</option>
-        </select>
 
-        <select
-          value={statusFilterRaw}
-          onChange={(e) => setStatusFilterRaw(e.target.value)}
-          className="p-2 rounded-lg border border-white/10 glass-pill text-slate-900"
-        >
-          <option value="ALL">All Status</option>
-          <option value="PENDING">PENDING</option>
-          <option value="APPROVED">APPROVED</option>
-          <option value="REJECTED">REJECTED</option>
-          <option value="CANCEL_REQUESTED">CANCEL_REQUESTED</option>
-          <option value="CANCELLED">CANCELLED</option>
-        </select>
+        {/* Slot dropdown (custom) */}
+        <div>
+          <Dropdown
+            options={["", "Morning", "Afternoon", "Full Day"].map((v) => (v === "" ? { value: "", label: "All Slots" } : v))}
+            value={searchSlotRaw}
+            onChange={(v) => setSearchSlotRaw(v)}
+            ariaLabel="Select slot"
+            placeholder="All Slots"
+            className={isDtao ? "text-slate-200" : ""}
+          />
+        </div>
+
+        {/* Status dropdown (custom) */}
+        <div>
+          <Dropdown
+            options={[
+              { value: "ALL", label: "All Status" },
+              "PENDING",
+              "APPROVED",
+              "REJECTED",
+              "CANCEL_REQUESTED",
+              "CANCELLED",
+            ]}
+            value={statusFilterRaw}
+            onChange={(v) => setStatusFilterRaw(v)}
+            ariaLabel="Select status"
+            placeholder="All Status"
+            className={isDtao ? "text-slate-200" : ""}
+          />
+        </div>
 
         <div className="flex gap-2 justify-end md:col-span-2">
           <button
@@ -378,7 +490,7 @@ const RequestsPage = () => {
               setSearchSlotRaw("");
               setStatusFilterRaw("ALL");
             }}
-            className="px-4 py-2 rounded-lg glass text-sm font-semibold text-slate-900"
+            className={`${isDtao ? "px-4 py-2 rounded-lg bg-transparent border border-violet-700 text-slate-200" : "px-4 py-2 rounded-lg bg-white border border-gray-200 text-slate-900"} text-sm font-semibold`}
           >
             Reset
           </button>
@@ -388,7 +500,7 @@ const RequestsPage = () => {
       {/* Card list */}
       <div className="space-y-4">
         {filteredItems.length === 0 ? (
-          <div className="p-6 text-center text-slate-600 glass">No requests found</div>
+          <div className={`${isDtao ? "p-6 text-center text-slate-300 bg-black/30 rounded-xl" : "p-6 text-center text-slate-600 glass"} `}>No requests found</div>
         ) : (
           filteredItems.map((r) => {
             const formattedDate = formatDateNice(r.date);
@@ -397,24 +509,24 @@ const RequestsPage = () => {
             const isCancelRequested = (r.status ?? "").toUpperCase() === "CANCEL_REQUESTED";
             const blink = blinkIds.has(String(id));
             const isNew = newIdsSet.has(String(id));
-            const cardRing = blink ? "ring-2 ring-yellow-200/30" : isNew ? "ring-2 ring-blue-200/20" : "";
+            const cardRing = blink ? (isDtao ? "ring-2 ring-yellow-700/30" : "ring-2 ring-yellow-200/30") : isNew ? (isDtao ? "ring-2 ring-blue-700/20" : "ring-2 ring-blue-200/20") : "";
 
             return (
-              <div key={id} className={`glass-strong p-4 md:p-5 rounded-xl flex flex-col md:flex-row md:items-start gap-4 ${cardRing}`}>
+              <div key={id} className={`${isDtao ? "bg-black/40 border border-violet-900" : "glass-strong"} p-4 md:p-5 rounded-xl flex flex-col md:flex-row md:items-start gap-4 ${cardRing}`}>
                 {/* left: basic info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
-                    <div className="text-sm font-semibold text-slate-900">{r.hallName || "—"}</div>
-                    <div className="text-xs text-slate-600 px-2 py-1 rounded-md bg-white/6">{r.department || "—"}</div>
+                    <div className={`${isDtao ? "text-sm font-semibold text-slate-100" : "text-sm font-semibold text-slate-900"}`}>{r.hallName || "—"}</div>
+                    <div className={`${isDtao ? "text-xs text-slate-300 px-2 py-1 rounded-md bg-white/3" : "text-xs text-slate-600 px-2 py-1 rounded-md bg-white/6"}`}>{r.department || "—"}</div>
                     {isNew && <div className="w-3 h-3 rounded-full bg-red-500 ml-2" title="New request" />}
                   </div>
 
-                  <div className="mt-2 text-sm text-slate-800">{formattedDate}</div>
-                  <div className="text-xs text-slate-600 mt-1">{timeRange}</div>
+                  <div className={`${isDtao ? "mt-2 text-sm text-slate-200" : "mt-2 text-sm text-slate-800"}`}>{formattedDate}</div>
+                  <div className={`${isDtao ? "text-xs text-slate-400 mt-1" : "text-xs text-slate-600 mt-1"}`}>{timeRange}</div>
 
                   <div className="mt-3 text-sm">
-                    <div className="text-slate-900 font-medium">{r.bookingName || "—"}</div>
-                    {r.bookingEmail && <div className="text-xs text-slate-600 mt-1">{r.bookingEmail}</div>}
+                    <div className={`${isDtao ? "text-slate-100 font-medium" : "text-slate-900 font-medium"}`}>{r.bookingName || "—"}</div>
+                    {r.bookingEmail && <div className={`${isDtao ? "text-xs text-slate-300 mt-1" : "text-xs text-slate-600 mt-1"}`}>{r.bookingEmail}</div>}
                   </div>
                 </div>
 
@@ -442,20 +554,20 @@ const RequestsPage = () => {
                     ) : isCancelRequested ? (
                       <>
                         <button
-                          className="px-3 py-1 rounded-md text-sm font-semibold glass-pill text-slate-900"
+                          className={`${isDtao ? "px-3 py-1 rounded-md text-sm font-semibold bg-white/5 text-slate-100" : "px-3 py-1 rounded-md text-sm font-semibold glass-pill text-slate-900"}`}
                           onClick={() => handleConfirmCancel(id)}
                         >
                           Confirm Cancel
                         </button>
                         <button
-                          className="px-3 py-1 rounded-md text-sm font-semibold glass-pill text-slate-900"
+                          className={`${isDtao ? "px-3 py-1 rounded-md text-sm font-semibold bg-white/5 text-slate-100" : "px-3 py-1 rounded-md text-sm font-semibold glass-pill text-slate-900"}`}
                           onClick={() => handleRejectCancel(id)}
                         >
                           Reject Cancel
                         </button>
                       </>
                     ) : (
-                      <div className="px-3 py-1 rounded-md text-sm text-slate-400">—</div>
+                      <div className={`${isDtao ? "px-3 py-1 rounded-md text-sm text-slate-400" : "px-3 py-1 rounded-md text-sm text-slate-400"}`}>—</div>
                     )}
                   </div>
                 </div>
@@ -473,12 +585,12 @@ const RequestsPage = () => {
                         return next;
                       })
                     }
-                    className="w-full p-2 rounded-lg border border-white/10 bg-white/6 text-slate-900 text-sm"
+                    className={`${isDtao ? "w-full p-2 rounded-lg border border-violet-700 bg-transparent text-slate-200 text-sm" : "w-full p-2 rounded-lg border border-gray-200 bg-white text-slate-900 text-sm"}`}
                   />
 
                   <div className="flex gap-2 items-start">
                     <button
-                      className="px-3 py-2 rounded-md text-sm font-semibold glass text-slate-900"
+                      className={`${isDtao ? "px-3 py-2 rounded-md text-sm font-semibold bg-emerald-600 text-white" : "px-3 py-2 rounded-md text-sm font-semibold glass text-slate-900"}`}
                       onClick={() => {
                         saveRemarks(id);
                         setNewIdsSet((prev) => {
@@ -492,14 +604,14 @@ const RequestsPage = () => {
                     </button>
 
                     {isCancelRequested && (
-                      <div className="p-3 rounded-md bg-yellow-50 text-sm text-yellow-800">
+                      <div className={`${isDtao ? "p-3 rounded-md bg-yellow-900/10 text-yellow-300" : "p-3 rounded-md bg-yellow-50 text-yellow-800"}`}>
                         <div><strong>Cancel reason:</strong> {r.cancellationReason || "—"}</div>
                         <div className="mt-1"><strong>Requested by:</strong> {r.cancellationRequestedBy || r.requestedBy || "—"}</div>
                       </div>
                     )}
 
                     {r.remarks && (
-                      <div className="p-3 rounded-md bg-white/30 text-sm text-slate-900">
+                      <div className={`${isDtao ? "p-3 rounded-md bg-white/5 text-slate-200" : "p-3 rounded-md bg-white/30 text-slate-900"}`}>
                         <strong>Admin remarks:</strong> <span className="ml-1">{r.remarks}</span>
                       </div>
                     )}
@@ -515,11 +627,12 @@ const RequestsPage = () => {
       {rejectModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setRejectModal({ open: false, normId: null })} />
-          <div className="relative z-10 w-full max-w-lg glass-strong p-6 rounded-2xl">
-            <h3 className="text-lg font-bold mb-3 text-slate-900">Reject Request</h3>
-            <p className="text-sm text-slate-600 mb-4">Please enter the reason for rejection. This will be saved as admin remarks and sent to the backend.</p>
+          <div className={`${isDtao ? "relative z-10 w-full max-w-lg bg-black/80 border border-violet-900 text-slate-100 p-6 rounded-2xl" : "relative z-10 w-full max-w-lg glass-strong p-6 rounded-2xl"}`}>
+            <h3 className={`${isDtao ? "text-lg font-bold mb-3 text-slate-100" : "text-lg font-bold mb-3 text-slate-900"}`}>Reject Request</h3>
+            <p className={`${isDtao ? "text-sm text-slate-300 mb-4" : "text-sm text-slate-600 mb-4"}`}>Please enter the reason for rejection. This will be saved as admin remarks and sent to the backend.</p>
 
             <textarea
+              ref={rejectTextareaRef}
               value={remarksMap[rejectModal.normId] ?? ""}
               onChange={(e) =>
                 setRemarksMap((prev) => {
@@ -530,12 +643,12 @@ const RequestsPage = () => {
               }
               rows="4"
               placeholder="Enter rejection reason..."
-              className="w-full p-3 rounded-lg border border-white/20 bg-white/6 text-sm text-slate-900"
+              className={`${isDtao ? "w-full p-3 rounded-lg border border-violet-700 bg-transparent text-sm text-slate-200" : "w-full p-3 rounded-lg border border-gray-200 bg-white text-sm text-slate-900"}`}
             />
 
             <div className="mt-4 flex justify-end gap-3">
               <button
-                className="px-4 py-2 rounded-md glass text-slate-900"
+                className={`${isDtao ? "px-4 py-2 rounded-md bg-transparent border border-violet-700 text-slate-200" : "px-4 py-2 rounded-md glass text-slate-900"}`}
                 onClick={() => setRejectModal({ open: false, normId: null })}
               >
                 Cancel
@@ -548,7 +661,7 @@ const RequestsPage = () => {
                   if (!id) return;
                   const currentRemark = (remarksMap[id] ?? "").trim();
                   if (!currentRemark) {
-                    toast.warn("Please enter a reason before rejecting");
+                    notify("Please enter a reason before rejecting", "warn", 2200);
                     return;
                   }
                   setRejectModal({ open: false, normId: null });
@@ -561,8 +674,6 @@ const RequestsPage = () => {
           </div>
         </div>
       )}
-
-      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };

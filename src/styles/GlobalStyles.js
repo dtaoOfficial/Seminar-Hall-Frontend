@@ -1,17 +1,11 @@
-// src/styles/GlobalStyles.jsx
 import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 
 /**
- * GlobalStyles
- * - Place once at app root (e.g. inside your main layout or App.jsx)
- * - Requires: Tailwind already configured in project.
- * - Optional: framer-motion available (you already use it).
- *
- * What it does:
- *  - Injects CSS variables and global CSS (smooth scrolling, scrollbar, glass utilities)
- *  - Renders animated background layer (soft orbs, squares, and tiny smile-symbol particles)
- *  - Respects prefers-reduced-motion
+ * GlobalStyles (updated)
+ * - Adds .dark -> theme overrides so dtao flips UI
+ * - Keeps animated background (respects prefers-reduced-motion)
+ * - Minimal changes to your original styles, plus dark-variable mappings
  */
 export default function GlobalStyles() {
   useEffect(() => {
@@ -21,7 +15,6 @@ export default function GlobalStyles() {
 
   return (
     <>
-      {/* Global CSS injected here */}
       <style>{`
         /* ========== iOS26-ish color palette (soft, pastel + slightly vivid accents) ========== */
         :root{
@@ -35,6 +28,16 @@ export default function GlobalStyles() {
           --ios-26-text: 28 30 33;
           --max-blur: 140px;
           --soft-blur: 40px;
+        }
+
+        /* dark / dtao overrides */
+        .dark, :root.dark {
+          --ios-26-bg-1: 6 6 10;
+          --ios-26-bg-2: 12 8 18;
+          --ios-26-accent-1: 120 86 255; /* slightly vivid in dark */
+          --ios-26-accent-2: 190 60 120;
+          --ios-26-card-bg: 18 18 22;
+          --ios-26-text: 238 238 242;
         }
 
         /* Smooth base gradient (not single color, not white/black) */
@@ -70,9 +73,15 @@ export default function GlobalStyles() {
           background: linear-gradient(180deg, rgba(var(--ios-26-card-bg), 0.72), rgba(var(--ios-26-card-bg), 0.52));
           backdrop-filter: blur(12px) saturate(120%);
           -webkit-backdrop-filter: blur(12px) saturate(120%);
-          border: 1px solid rgba(255,255,255,0.24);
+          border: 1px solid rgba(255,255,255,0.12);
           box-shadow: 0 6px 30px rgba(22,23,24,0.06);
           border-radius: 16px;
+        }
+
+        /* dark glass tweak */
+        .dark .glass {
+          background: linear-gradient(180deg, rgba(12,12,16,0.68), rgba(18,18,22,0.4));
+          border: 1px solid rgba(255,255,255,0.04);
         }
 
         /* Stronger glass (cards/header) */
@@ -158,7 +167,6 @@ export default function GlobalStyles() {
         className="fixed inset-0 -z-10 pointer-events-none"
         style={{ willChange: "transform, opacity" }}
       >
-        {/* Use SVG + divs for crisp shapes + CSS animations */}
         <div className="absolute inset-0 overflow-hidden bg-layer">
           {/* large soft orb (left-top) */}
           <motion.div

@@ -1,16 +1,14 @@
-// src/pages/Dept/AddSeminarPage.js
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import axios from "axios";
 import { useLocation } from "react-router-dom";
+import api from "../../utils/api";
 
-const API_BASE = "http://localhost:8080/api";
-
+/* ---------- Helpers ---------- */
 const ymd = (d) => {
   if (!d) return "";
   const dt = d instanceof Date ? d : new Date(d);
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
 };
-
 const build15MinOptions = (startHour = 8, endHour = 18) => {
   const out = [];
   for (let h = startHour; h <= endHour; h++) {
@@ -76,6 +74,7 @@ const UsersIcon = (props) => (
   </svg>
 );
 
+/* ---------- BookedSlotsModal (overlay click closes) ---------- */
 const BookedSlotsModal = ({ isOpen, onClose, seminars, hallKey, dateStr }) => {
   if (!isOpen) return null;
   const hallTitle = hallKey?.name || hallKey || "Selected Hall";
@@ -89,8 +88,9 @@ const BookedSlotsModal = ({ isOpen, onClose, seminars, hallKey, dateStr }) => {
   const timeBookings = relevant.filter((r) => r.startTime && r.endTime);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg bg-white rounded-lg shadow-lg border border-gray-200 p-5" onClick={(e)=>e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-lg bg-white rounded-lg shadow-lg border border-gray-200 p-5" onClick={(e)=>e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-lg font-semibold text-slate-800">Booked Slots — {hallTitle}</h3>
@@ -104,12 +104,10 @@ const BookedSlotsModal = ({ isOpen, onClose, seminars, hallKey, dateStr }) => {
             <h4 className="text-sm font-medium text-indigo-600 mb-2">Day-wise</h4>
             {dayBookings.length === 0 ? <p className="text-slate-500">No full-day bookings</p> : (
               <ul className="space-y-2">
-                {dayBookings.map((b,i)=>(
-                  <li key={i} className="p-2 rounded bg-slate-50 border border-gray-100">
-                    <strong className="text-slate-700">{b.startDate || b.date} → {b.endDate || b.date}</strong>
-                    <div className="text-sm text-slate-600 mt-1">{b.slotTitle || b.bookingName || "Booked"}</div>
-                  </li>
-                ))}
+                {dayBookings.map((b,i)=>(<li key={i} className="p-2 rounded bg-slate-50 border border-gray-100">
+                  <strong className="text-slate-700">{b.startDate || b.date} → {b.endDate || b.date}</strong>
+                  <div className="text-sm text-slate-600 mt-1">{b.slotTitle || b.bookingName || "Booked"}</div>
+                </li>))}
               </ul>
             )}
           </div>
@@ -118,12 +116,10 @@ const BookedSlotsModal = ({ isOpen, onClose, seminars, hallKey, dateStr }) => {
             <h4 className="text-sm font-medium text-indigo-600 mb-2">Time-wise</h4>
             {timeBookings.length === 0 ? <p className="text-slate-500">No time-slot bookings</p> : (
               <ul className="space-y-2">
-                {timeBookings.map((b,i)=>(
-                  <li key={i} className="p-2 rounded bg-slate-50 border border-gray-100">
-                    <div className="font-semibold text-slate-700">{b.date}</div>
-                    <div className="text-sm text-slate-600">{b.startTime} — {b.endTime} — {b.slotTitle || b.bookingName || "Booked"}</div>
-                  </li>
-                ))}
+                {timeBookings.map((b,i)=>(<li key={i} className="p-2 rounded bg-slate-50 border border-gray-100">
+                  <div className="font-semibold text-slate-700">{b.date}</div>
+                  <div className="text-sm text-slate-600">{b.startTime} — {b.endTime} — {b.slotTitle || b.bookingName || "Booked"}</div>
+                </li>))}
               </ul>
             )}
           </div>
@@ -133,6 +129,7 @@ const BookedSlotsModal = ({ isOpen, onClose, seminars, hallKey, dateStr }) => {
   );
 };
 
+/* ---------- Component ---------- */
 export default function AddSeminarPage() {
   const location = useLocation();
 
@@ -177,11 +174,6 @@ export default function AddSeminarPage() {
 
   const DEFAULT_REMARKS = "Requested by Dept";
 
-  const authHeader = () => {
-    const token = localStorage.getItem("token");
-    return token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-  };
-
   const showNotification = (msg, ms = 3500) => {
     setNotification(msg);
     if (notifRef.current) clearTimeout(notifRef.current);
@@ -199,20 +191,19 @@ export default function AddSeminarPage() {
     try { const raw = localStorage.getItem("user"); return raw ? JSON.parse(raw) : null; } catch { return null; }
   };
 
+  /* ---------- fetch ---------- */
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      // IMPORTANT: include authHeader for dept endpoints
       const [hRes, sRes, dRes] = await Promise.all([
-        axios.get(`${API_BASE}/halls`, authHeader()).catch(()=>({ data: [] })),
-        axios.get(`${API_BASE}/seminars`, authHeader()).catch(()=>({ data: [] })),
-        axios.get(`${API_BASE}/departments`, authHeader()).catch(()=>({ data: [] }))
+        api.get("/halls").catch(()=>({ data: [] })),
+        api.get("/seminars").catch(()=>({ data: [] })),
+        api.get("/departments").catch(()=>({ data: [] }))
       ]);
       setHalls(Array.isArray(hRes.data) ? hRes.data : []);
       setSeminars(Array.isArray(sRes.data) ? sRes.data : []);
       const depts = Array.isArray(dRes.data) ? dRes.data.map(d => (typeof d === "string" ? d : d?.name)).filter(Boolean) : [];
       setDepartments(depts);
-      setLoading(false);
       if (Array.isArray(hRes.data) && hRes.data.length > 0 && !selectedHall) {
         const first = hRes.data[0];
         setSelectedHall(first.name || first._id || first.id || "");
@@ -220,12 +211,14 @@ export default function AddSeminarPage() {
     } catch (err) {
       console.error("fetchAll failed", err);
       showNotification("Error fetching data");
+    } finally {
       setLoading(false);
     }
   }, [selectedHall]);
 
   useEffect(()=>{ fetchAll(); return ()=>{ if (notifRef.current) clearTimeout(notifRef.current); } }, [fetchAll]);
 
+  /* ---------- normalize seminars -> bookedMap ---------- */
   useEffect(()=> {
     const map = new Map();
     (seminars || []).forEach((s) => {
@@ -260,7 +253,9 @@ export default function AddSeminarPage() {
         const arr = map.get(dateKey) || [];
         arr.push({ date: dateKey, startMin: sMin, endMin: eMin, hallName, hallId, original: s, type: "time" });
         map.set(dateKey, arr);
-      } catch (e) {}
+      } catch (e) {
+        // ignore an individual seminar parse error
+      }
     });
     setBookedMap(map);
   }, [seminars]);
@@ -276,6 +271,7 @@ export default function AddSeminarPage() {
     return arr.some(b => (b.type === "day" || (b.startMin === 0 && b.endMin === 1440)) && (b.hallName === hall || String(b.hallId) === String(hall)));
   }, [bookedMap]);
 
+  /* ---------- availability checks ---------- */
   const checkTimeWiseAvailability = useCallback(() => {
     if (!selectedHall) return { ok:false, msg:"Please select a hall from the right." };
     if (!date) return { ok:false, msg:"Pick a date." };
@@ -395,6 +391,7 @@ export default function AddSeminarPage() {
     }
   }, [bookingMode, checkDayWiseAvailability, checkTimeWiseAvailability]);
 
+  /* ---------- auto-check ---------- */
   const autoCheckTimer = useRef(null);
   useEffect(() => {
     if (!autoCheckEnabled) return;
@@ -403,6 +400,7 @@ export default function AddSeminarPage() {
     return () => { if (autoCheckTimer.current) clearTimeout(autoCheckTimer.current); };
   }, [autoCheckEnabled, bookingMode, selectedHall, date, startTime, endTime, startDate, endDate, daySlots, doCheckAvailability]);
 
+  /* ---------- submit ---------- */
   const resetForm = () => {
     setSlotTitle("");
     setStartTime(TIME_OPTIONS[4]);
@@ -450,7 +448,7 @@ export default function AddSeminarPage() {
           startTime,
           endTime
         };
-        await axios.post(`${API_BASE}/seminars`, payload, authHeader());
+        await api.post("/seminars", payload);
       } else {
         const days = listDatesBetween(startDate, endDate);
         const posts = [];
@@ -475,7 +473,7 @@ export default function AddSeminarPage() {
             posts.push({ ...base, startDate: key, endDate: key });
           }
         }
-        await Promise.all(posts.map(p => axios.post(`${API_BASE}/seminars`, p, authHeader())));
+        await Promise.all(posts.map(p => api.post("/seminars", p)));
       }
 
       await fetchAll();
@@ -493,12 +491,13 @@ export default function AddSeminarPage() {
     }
   };
 
+  /* ---------- tiny heatmap ---------- */
   const renderTinyHeatmap = (hallKey, dateObj) => {
     const key = ymd(dateObj || new Date());
     const arr = bookedMap.get(key) || [];
     const startBase = hhmmToMinutes(TIME_OPTIONS[0]);
     const endBase = hhmmToMinutes(TIME_OPTIONS[TIME_OPTIONS.length-1]) + 15;
-    const total = (endBase - startBase) / 15;
+    const total = Math.max(0, (endBase - startBase) / 15);
     const slots = new Array(total).fill(false);
     arr.forEach((b) => {
       const hallMatch = b.hallName === hallKey || String(b.hallId) === String(hallKey);
@@ -521,6 +520,7 @@ export default function AddSeminarPage() {
     );
   };
 
+  /* ---------- load user + location state ---------- */
   useEffect(()=> {
     const u = getLoggedUser();
     if (u) {
@@ -576,6 +576,7 @@ export default function AddSeminarPage() {
     }
   }, [halls, departments, loading, selectedHall]);
 
+  /* ---------- render ---------- */
   return (
     <>
       <style>{`
@@ -774,7 +775,7 @@ export default function AddSeminarPage() {
             </form>
           </section>
 
-          {/* RIGHT: halls + summary (removed Request button here) */}
+          {/* RIGHT: halls + summary */}
           <aside className="space-y-6">
             <div className="bg-white rounded-lg border p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
@@ -836,7 +837,7 @@ export default function AddSeminarPage() {
             </div>
 
             <div className="bg-white rounded-lg border p-4 shadow-sm">
-              <h4 className="text-lg font-semibold mb-3">Your Selection</h4>
+              <h4 className="text-lg font-semibold text-slate-800 mb-3">Your Selection</h4>
               <div className="text-sm text-slate-600 space-y-2">
                 <div><span className="text-indigo-600">Hall:</span> {selectedHallObj?.name || selectedHall || "Not selected"}</div>
                 <div><span className="text-indigo-600">Event:</span> {slotTitle || "Not specified"}</div>
@@ -846,7 +847,6 @@ export default function AddSeminarPage() {
 
               <div className="mt-4 flex gap-3">
                 <button onClick={()=>resetForm()} className="flex-1 bg-gray-100 py-3 rounded-lg">Clear</button>
-                {/* Right-side 'Request' removed by design */}
               </div>
             </div>
           </aside>

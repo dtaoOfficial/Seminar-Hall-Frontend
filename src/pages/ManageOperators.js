@@ -1,10 +1,14 @@
 // src/pages/ManageOperatorsPage.jsx
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import api from "../utils/api";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { useNotification } from "../components/NotificationsProvider";
+import { useTheme } from "../contexts/ThemeContext";
 
 export default function ManageOperatorsPage() {
+  const { notify } = useNotification();
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
+
   const [operators, setOperators] = useState([]);
   const [halls, setHalls] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,60 +29,148 @@ export default function ManageOperatorsPage() {
   const perPageOptions = [5, 10, 20];
   const [perPage, setPerPage] = useState(10);
 
-  // Fetch operators
+  const mainRef = useRef(null);
+  const formTopRef = useRef(null);
+
+  /* ---------- Accessible Dropdown ---------- */
+  function Dropdown({ options = [], value, onChange, className = "", ariaLabel = "Select", placeholder = "" }) {
+    const ref = useRef(null);
+    const [open, setOpen] = useState(false);
+    const normalized = options.map((o) => (typeof o === "string" ? { value: o, label: o } : { value: o.value, label: o.label ?? o.value }));
+    const selectedLabel = (normalized.find((o) => String(o.value) === String(value)) || {}).label ?? "";
+
+    useEffect(() => {
+      function onDoc(e) {
+        if (!ref.current) return;
+        if (!ref.current.contains(e.target)) setOpen(false);
+      }
+      document.addEventListener("mousedown", onDoc);
+      return () => document.removeEventListener("mousedown", onDoc);
+    }, []);
+
+    const onKeyDownRoot = (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setOpen((s) => !s);
+      } else if (e.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    const onOptionKey = (e, opt) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onChange(opt.value);
+        setOpen(false);
+      }
+    };
+
+    return (
+      <div ref={ref} className={`relative inline-block w-full ${className}`}>
+        <button
+          type="button"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-label={ariaLabel}
+          onClick={() => setOpen((s) => !s)}
+          onKeyDown={onKeyDownRoot}
+          className={`w-full text-left rounded-md px-3 py-2 border flex items-center justify-between ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : "bg-white border-gray-200 text-gray-800"}`}
+        >
+          <span className={`${selectedLabel ? "" : (isDtao ? "text-slate-400" : "text-gray-400")}`}>{selectedLabel || placeholder}</span>
+          <svg className={`w-4 h-4 ml-2 ${isDtao ? "text-slate-300" : "text-slate-600"}`} viewBox="0 0 24 24" fill="none">
+            <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        {open && (
+          <div
+            role="listbox"
+            tabIndex={-1}
+            className={`absolute z-50 mt-1 w-full rounded-md shadow-lg ${isDtao ? "bg-black/80 border border-violet-800 text-slate-100" : "bg-white border"}`}
+            style={{ maxHeight: `${5 * 40}px`, overflowY: "auto" }}
+          >
+            {normalized.map((opt) => (
+              <div
+                key={opt.value}
+                role="option"
+                aria-selected={String(opt.value) === String(value)}
+                tabIndex={0}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                onKeyDown={(e) => onOptionKey(e, opt)}
+                className={`px-3 py-2 cursor-pointer ${isDtao ? "hover:bg-violet-900/60" : "hover:bg-gray-100"} ${String(opt.value) === String(value) ? (isDtao ? "bg-violet-900/70 font-medium" : "bg-blue-50 font-medium") : ""}`}
+              >
+                {opt.label}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* ---------- Data fetchers ---------- */
   async function fetchOperators() {
     setLoading(true);
     try {
       const res = await api.get("/hall-operators");
       setOperators(Array.isArray(res.data) ? res.data : []);
+      // scroll into view so user notices refreshed list
+      try {
+        if (mainRef.current && mainRef.current.scrollIntoView) mainRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (e) {}
     } catch (err) {
       console.error("fetchOperators", err);
-      toast.error("Failed to load operators");
+      notify("Failed to load operators", "error", 3000);
     } finally {
       setLoading(false);
     }
   }
 
-  // Fetch halls for select
   async function fetchHalls() {
     try {
       const res = await api.get("/halls");
       setHalls(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("fetchHalls", err);
-      toast.error("Failed to load halls");
+      notify("Failed to load halls", "error", 3000);
     }
   }
 
   useEffect(() => {
     fetchOperators();
     fetchHalls();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function resetForm() {
     setForm({ hallName: "", headName: "", headEmail: "", phone: "" });
     setEditingId(null);
+    // focus top of form
+    try {
+      if (formTopRef.current && formTopRef.current.scrollIntoView) formTopRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (e) {}
   }
 
   function validateForm() {
     if (!form.hallName || !form.headName.trim() || !form.headEmail.trim()) {
-      toast.warn("Hall, head name and email are required");
+      notify("Hall, head name and email are required", "warn", 2200);
       return false;
     }
 
-    // Phone validation (optional)
     if (form.phone) {
       const phoneRegex = /^[6-9]\d{9}$/;
       if (!phoneRegex.test(form.phone)) {
-        toast.error("Phone must be 10 digits starting with 6/7/8/9");
+        notify("Phone must be 10 digits starting with 6/7/8/9", "error", 3000);
         return false;
       }
     }
 
-    // Email domain validation
     const email = (form.headEmail || "").toLowerCase();
     if (!(email.endsWith("@newhorizonindia.edu") || email.endsWith("@gmail.com"))) {
-      toast.error("Email must be @newhorizonindia.edu or @gmail.com");
+      notify("Email must be @newhorizonindia.edu or @gmail.com", "error", 3000);
       return false;
     }
 
@@ -92,10 +184,10 @@ export default function ManageOperatorsPage() {
     try {
       if (editingId) {
         await api.put(`/hall-operators/${editingId}`, form);
-        toast.success("Operator updated");
+        notify("Operator updated", "success", 2200);
       } else {
         await api.post("/hall-operators", form);
-        toast.success("Operator created");
+        notify("Operator created", "success", 2200);
       }
       resetForm();
       await fetchOperators();
@@ -106,7 +198,7 @@ export default function ManageOperatorsPage() {
         err?.response?.data?.message ||
         err?.message ||
         "Failed";
-      toast.error(String(msg));
+      notify(String(msg), "error", 3500);
     }
   }
 
@@ -118,6 +210,10 @@ export default function ManageOperatorsPage() {
       headEmail: op.headEmail || "",
       phone: op.phone || "",
     });
+    // scroll to form top & focus
+    try {
+      if (formTopRef.current && formTopRef.current.scrollIntoView) formTopRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (e) {}
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -125,29 +221,26 @@ export default function ManageOperatorsPage() {
     if (!window.confirm("Delete this operator?")) return;
     try {
       await api.delete(`/hall-operators/${id}`);
-      toast.success("Deleted");
+      notify("Deleted", "success", 1800);
       await fetchOperators();
     } catch (err) {
       console.error("delete operator", err);
-      toast.error("Failed to delete");
+      notify("Failed to delete", "error", 3000);
     }
   }
 
-  // --- Extra features ---
-  // copy email to clipboard
   const copyToClipboard = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Email copied");
+      notify("Email copied", "success", 1400);
     } catch {
-      toast.error("Copy failed");
+      notify("Copy failed", "error", 1800);
     }
   };
 
-  // export visible data to CSV
   const exportCSV = (rows) => {
     if (!rows || rows.length === 0) {
-      toast.info("No rows to export");
+      notify("No rows to export", "info", 1800);
       return;
     }
     const headers = ["Hall", "Head", "Email", "Phone"];
@@ -170,10 +263,10 @@ export default function ManageOperatorsPage() {
     a.download = `operators_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("CSV exported");
+    notify("CSV exported", "success", 1800);
   };
 
-  // --- filtering / search / pagination ---
+  // filtering / search / pagination
   const filtered = useMemo(() => {
     const q = (query || "").trim().toLowerCase();
     return operators.filter((op) => {
@@ -192,60 +285,56 @@ export default function ManageOperatorsPage() {
   }, [filtered, page, perPage]);
 
   useEffect(() => {
-    // reset to page 1 when filters change
     setPage(1);
   }, [query, hallFilter, perPage]);
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
+    <div ref={mainRef} className={`${isDtao ? "min-h-screen bg-[#08050b] text-slate-100" : "min-h-screen bg-gray-50 text-slate-900"} p-4 sm:p-8`}>
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-2xl font-semibold text-gray-800 mb-4">Manage Hall Operators</h1>
+        <h1 className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-2xl font-semibold mb-4`}>Manage Hall Operators</h1>
 
         {/* form */}
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+        <form ref={formTopRef} onSubmit={handleSubmit} className={`${isDtao ? "bg-black/40 border border-violet-900" : "bg-white"} rounded-lg shadow p-4 sm:p-6 mb-6`}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Hall</label>
-              <select
-                value={form.hallName}
-                onChange={(e) => setForm({ ...form, hallName: e.target.value })}
-                required
-                className="block w-full border border-gray-200 rounded-md px-3 py-2 bg-white"
-              >
-                <option value="">-- Select Hall --</option>
-                {halls.map((h) => (
-                  <option key={h.id ?? h._id} value={h.name}>
-                    {h.name}
-                  </option>
-                ))}
-              </select>
+              <label className={`block text-sm font-medium mb-1 ${isDtao ? "text-slate-200" : "text-gray-700"}`}>Hall</label>
+
+              {/* use custom Dropdown for halls */}
+              <Dropdown
+                options={[{ value: "", label: "-- Select Hall --" }, ...halls.map((h) => ({ value: h.name, label: h.name }))]}
+                value={form.hallName || ""}
+                onChange={(v) => setForm({ ...form, hallName: v })}
+                ariaLabel="Select hall"
+                className=""
+                placeholder="-- Select Hall --"
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Head Name</label>
+              <label className={`block text-sm font-medium mb-1 ${isDtao ? "text-slate-200" : "text-gray-700"}`}>Head Name</label>
               <input
                 placeholder="Head name"
                 value={form.headName}
                 onChange={(e) => setForm({ ...form, headName: e.target.value })}
                 required
-                className="block w-full border border-gray-200 rounded-md px-3 py-2 bg-white"
+                className={`${isDtao ? "block w-full border border-violet-700 rounded-md px-3 py-2 bg-transparent text-slate-100" : "block w-full border border-gray-200 rounded-md px-3 py-2 bg-white"}`}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Head Email</label>
+              <label className={`block text-sm font-medium mb-1 ${isDtao ? "text-slate-200" : "text-gray-700"}`}>Head Email</label>
               <input
                 placeholder="Head email"
                 type="email"
                 value={form.headEmail}
                 onChange={(e) => setForm({ ...form, headEmail: e.target.value })}
                 required
-                className="block w-full border border-gray-200 rounded-md px-3 py-2 bg-white"
+                className={`${isDtao ? "block w-full border border-violet-700 rounded-md px-3 py-2 bg-transparent text-slate-100" : "block w-full border border-gray-200 rounded-md px-3 py-2 bg-white"}`}
               />
             </div>
 
             <div className="sm:col-span-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <label className={`block text-sm font-medium mb-1 ${isDtao ? "text-slate-200" : "text-gray-700"}`}>Phone</label>
               <input
                 placeholder="Phone (10 digits, optional)"
                 value={form.phone}
@@ -254,7 +343,7 @@ export default function ManageOperatorsPage() {
                   const val = e.target.value.replace(/\D/g, "");
                   setForm({ ...form, phone: val });
                 }}
-                className="block w-full border border-gray-200 rounded-md px-3 py-2 bg-white"
+                className={`${isDtao ? "block w-full border border-violet-700 rounded-md px-3 py-2 bg-transparent text-slate-100" : "block w-full border border-gray-200 rounded-md px-3 py-2 bg-white"}`}
               />
             </div>
 
@@ -262,7 +351,7 @@ export default function ManageOperatorsPage() {
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 shadow"
+                  className={`${isDtao ? "inline-flex items-center px-4 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700" : "inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"} shadow`}
                 >
                   {editingId ? "Save" : "Create"}
                 </button>
@@ -271,7 +360,7 @@ export default function ManageOperatorsPage() {
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                    className={`${isDtao ? "inline-flex items-center px-4 py-2 bg-transparent border border-violet-700 text-slate-200 rounded-md hover:bg-black/10" : "inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"}`}
                   >
                     Cancel
                   </button>
@@ -279,14 +368,14 @@ export default function ManageOperatorsPage() {
                   <button
                     type="button"
                     onClick={() => setForm({ hallName: "", headName: "", headEmail: "", phone: "" })}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                    className={`${isDtao ? "inline-flex items-center px-4 py-2 bg-transparent border border-violet-700 text-slate-200 rounded-md hover:bg-black/10" : "inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"}`}
                   >
                     Clear
                   </button>
                 )}
               </div>
 
-              <div className="text-sm text-gray-500">Tip: email must be @newhorizonindia.edu or @gmail.com</div>
+              <div className={`${isDtao ? "text-xs text-slate-400" : "text-sm text-gray-500"}`}>Tip: email must be @newhorizonindia.edu or @gmail.com</div>
             </div>
           </div>
         </form>
@@ -298,35 +387,33 @@ export default function ManageOperatorsPage() {
               placeholder="Search hall, head or email..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full sm:w-80 border border-gray-200 rounded-md px-3 py-2 bg-white"
+              className={`${isDtao ? "w-full sm:w-80 border border-violet-700 rounded-md px-3 py-2 bg-transparent text-slate-200" : "w-full sm:w-80 border border-gray-200 rounded-md px-3 py-2 bg-white"}`}
             />
 
-            <select
-              value={hallFilter}
-              onChange={(e) => setHallFilter(e.target.value)}
-              className="border border-gray-200 rounded-md px-3 py-2 bg-white"
-            >
-              <option value="">All halls</option>
-              {halls.map((h) => (
-                <option key={h.id ?? h._id} value={h.name}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
+            {/* hall filter uses Dropdown */}
+            <div style={{ width: 200 }}>
+              <Dropdown
+                options={[{ value: "", label: "All halls" }, ...halls.map((h) => ({ value: h.name, label: h.name }))]}
+                value={hallFilter}
+                onChange={(v) => setHallFilter(v)}
+                ariaLabel="Filter hall"
+                placeholder="All halls"
+              />
+            </div>
 
             <button
               onClick={() => {
                 exportCSV(filtered);
               }}
-              className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              className={`${isDtao ? "px-3 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700" : "px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"}`}
             >
               Export CSV
             </button>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="text-sm text-gray-600">Rows:</div>
-            <select value={perPage} onChange={(e) => setPerPage(Number(e.target.value))} className="border border-gray-200 rounded-md px-2 py-1 bg-white">
+            <div className={`${isDtao ? "text-xs text-slate-400" : "text-sm text-gray-600"}`}>Rows:</div>
+            <select value={perPage} onChange={(e) => setPerPage(Number(e.target.value))} className={`${isDtao ? "border border-violet-700 rounded-md px-2 py-1 bg-transparent text-slate-200" : "border border-gray-200 rounded-md px-2 py-1 bg-white"}`}>
               {perPageOptions.map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -334,24 +421,24 @@ export default function ManageOperatorsPage() {
               ))}
             </select>
 
-            <div className="text-sm text-gray-600 ml-2">
+            <div className={`${isDtao ? "text-xs text-slate-400 ml-2" : "text-sm text-gray-600 ml-2"}`}>
               {total} result{total !== 1 ? "s" : ""}
             </div>
           </div>
         </div>
 
         {/* table / list */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {/* responsive table header for desktop */}
+        <div className={`${isDtao ? "bg-black/40 border border-violet-900" : "bg-white"} rounded-lg shadow overflow-hidden`}>
+          {/* desktop table */}
           <div className="hidden sm:block">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className={`${isDtao ? "bg-black/30" : "bg-gray-50"}`}>
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Hall</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Head</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Email</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Phone</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Actions</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Hall</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Head</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Email</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Phone</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Actions</th>
                 </tr>
               </thead>
 
@@ -371,9 +458,9 @@ export default function ManageOperatorsPage() {
                 ) : (
                   paged.map((op) => (
                     <tr key={op.id ?? op._id}>
-                      <td className="px-4 py-3 text-sm text-gray-700">{op.hallName}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{op.headName}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700 flex items-center gap-3">
+                      <td className="px-4 py-3 text-sm">{op.hallName}</td>
+                      <td className="px-4 py-3 text-sm">{op.headName}</td>
+                      <td className="px-4 py-3 text-sm flex items-center gap-3">
                         <span>{op.headEmail}</span>
                         <button
                           onClick={() => copyToClipboard(op.headEmail || "")}
@@ -383,8 +470,8 @@ export default function ManageOperatorsPage() {
                           Copy
                         </button>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{op.phone || "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">
+                      <td className="px-4 py-3 text-sm">{op.phone || "—"}</td>
+                      <td className="px-4 py-3 text-sm">
                         <div className="flex gap-2">
                           <button onClick={() => handleEdit(op)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
                             Edit
@@ -412,7 +499,7 @@ export default function ManageOperatorsPage() {
                 <div key={op.id ?? op._id} className="p-4 border-b last:border-b-0">
                   <div className="flex justify-between items-start">
                     <div>
-                      <div className="text-sm font-medium text-gray-800">{op.hallName}</div>
+                      <div className="text-sm font-medium">{op.hallName}</div>
                       <div className="text-sm text-gray-600">{op.headName}</div>
                       <div className="text-sm text-gray-600">{op.phone || "—"}</div>
                       <div className="text-sm text-gray-600 flex items-center gap-2">
@@ -440,7 +527,7 @@ export default function ManageOperatorsPage() {
 
         {/* pagination */}
         <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm">
             Page {page} of {totalPages}
           </div>
 
@@ -462,8 +549,6 @@ export default function ManageOperatorsPage() {
           </div>
         </div>
       </div>
-
-      <ToastContainer position="top-right" autoClose={2500} />
     </div>
   );
 }

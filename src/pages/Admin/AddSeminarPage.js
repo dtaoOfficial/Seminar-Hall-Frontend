@@ -1,6 +1,7 @@
 // src/pages/Admin/AddSeminarPage.js
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import api from "../../utils/api";
+import { useTheme } from "../../contexts/ThemeContext";
 
 /* ---------- Helpers ---------- */
 const ymd = (d) => {
@@ -73,8 +74,81 @@ const UsersIcon = (props) => (
   </svg>
 );
 
+/* ---------- Custom TimeSelect (replaces native select) ---------- */
+/*
+  - small accessible-ish custom dropdown
+  - shows only 5 visible options (scrollable)
+  - adapts to `isDtao` theme
+*/
+function TimeSelect({ value, onChange, options = TIME_OPTIONS, className = "", ariaLabel = "Select time" }) {
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
+
+  useEffect(() => {
+    function onDoc(e) {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      // scroll selected into view
+      const el = ref.current?.querySelector(`[data-val="${value}"]`);
+      if (el?.scrollIntoView) el.scrollIntoView({ block: "nearest" });
+    }
+  }, [open, value]);
+
+  return (
+    <div ref={ref} className={`relative inline-block ${className}`}>
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        onClick={() => setOpen((s) => !s)}
+        className={`w-full text-left rounded-md px-3 py-2 border flex items-center justify-between ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`}
+      >
+        <span>{to12Label(value)}</span>
+        <svg className={`w-4 h-4 ml-2 ${isDtao ? "text-slate-300" : "text-slate-600"}`} viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          tabIndex={-1}
+          className={`absolute z-50 mt-1 w-full rounded-md shadow-lg ${isDtao ? "bg-black/80 border border-violet-800 text-slate-100" : "bg-white border"}`}
+          style={{ maxHeight: `${5 * 40}px`, overflowY: "auto" }} // ~5 rows of 40px
+        >
+          {options.map((opt) => (
+            <div
+              key={opt}
+              role="option"
+              data-val={opt}
+              aria-selected={opt === value}
+              tabIndex={0}
+              onClick={() => { onChange(opt); setOpen(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChange(opt); setOpen(false); } }}
+              className={`px-3 py-2 cursor-pointer ${isDtao ? "hover:bg-violet-900/60" : "hover:bg-gray-100"} ${opt === value ? (isDtao ? "bg-violet-900/70" : "bg-blue-50 font-semibold") : ""}`}
+            >
+              {to12Label(opt)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Component ---------- */
 export default function SingleBookingPage() {
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
+
   // booking mode + form
   const [bookingMode, setBookingMode] = useState("time"); // time | day
   const [slotTitle, setSlotTitle] = useState("");
@@ -450,18 +524,18 @@ export default function SingleBookingPage() {
             <div key={i} className={`h-2 flex-1 rounded-sm ${s ? "bg-rose-300" : "bg-emerald-200"}`} />
           ))}
         </div>
-        <div className="mt-1 text-xs text-slate-500">Heatmap (15m seg)</div>
+        <div className={`mt-1 text-xs ${isDtao ? "text-slate-300" : "text-slate-500"}`}>Heatmap (15m seg)</div>
       </div>
     );
   };
 
   /* ---------- Render ---------- */
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
+    <div className={`${isDtao ? "min-h-screen p-6 bg-[#08050b] text-slate-100" : "min-h-screen bg-slate-50 p-6"}`}>
       {/* Notification */}
       {notification && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
-          <div className="rounded-xl px-4 py-2 shadow-lg bg-white border">
+          <div className={`rounded-xl px-4 py-2 shadow-lg ${isDtao ? "bg-black/60 border border-violet-800 text-slate-100" : "bg-white border text-slate-900"}`}>
             <div className="text-sm">{notification}</div>
           </div>
         </div>
@@ -470,61 +544,81 @@ export default function SingleBookingPage() {
       {/* Success overlay */}
       {showSuccess && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-          <div className="rounded-2xl bg-white p-6 shadow-xl">
+          <div className={`${isDtao ? "rounded-2xl bg-black/80 border border-violet-800 p-6 shadow-xl text-slate-100" : "rounded-2xl bg-white p-6 shadow-xl"}`}>
             <div className="text-lg font-semibold">Booked!</div>
-            <div className="text-sm text-slate-600">Your booking was saved.</div>
+            <div className={`${isDtao ? "text-slate-300" : "text-slate-600"} text-sm`}>Your booking was saved.</div>
           </div>
         </div>
       )}
 
       <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* FORM (left) - note: removed hall dropdown here per request */}
-        <section className="bg-white rounded-2xl border p-6 shadow">
+        <section className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white"} rounded-2xl p-6 shadow`}>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-2xl font-semibold">Book a Seminar Hall (Admin)</h1>
-              <p className="text-sm text-slate-500 mt-1">Select a hall from the right, then check & book.</p>
+              <h1 className={`${isDtao ? "text-slate-100" : "text-slate-800"} text-2xl font-semibold`}>Book a Seminar Hall (Admin)</h1>
+              <p className={`${isDtao ? "text-slate-300" : "text-slate-500"} text-sm mt-1`}>Select a hall from the right, then check & book.</p>
             </div>
           </div>
 
-          <div className="mt-4 flex gap-3 rounded-full p-1 bg-indigo-50">
-            <button onClick={()=>{ setBookingMode("time"); setLastCheckOk(false); setLastCheckMessage(""); }} className={`flex-1 py-2 rounded-full ${bookingMode==="time" ? "bg-indigo-600 text-white" : "text-slate-600"}`}>Time Wise</button>
-            <button onClick={()=>{ setBookingMode("day"); setLastCheckOk(false); setLastCheckMessage(""); }} className={`flex-1 py-2 rounded-full ${bookingMode==="day" ? "bg-indigo-600 text-white" : "text-slate-600"}`}>Day Wise</button>
+          <div className={`mt-4 flex gap-3 rounded-full p-1 ${isDtao ? "bg-black/30" : "bg-indigo-50"}`}>
+            <button
+              onClick={()=>{ setBookingMode("time"); setLastCheckOk(false); setLastCheckMessage(""); }}
+              className={`flex-1 py-2 rounded-full ${bookingMode==="time" ? (isDtao ? "bg-violet-600 text-white" : "bg-indigo-600 text-white") : (isDtao ? "text-slate-300" : "text-slate-600")}`}
+            >
+              Time Wise
+            </button>
+            <button
+              onClick={()=>{ setBookingMode("day"); setLastCheckOk(false); setLastCheckMessage(""); }}
+              className={`flex-1 py-2 rounded-full ${bookingMode==="day" ? (isDtao ? "bg-violet-600 text-white" : "bg-indigo-600 text-white") : (isDtao ? "text-slate-300" : "text-slate-600")}`}
+            >
+              Day Wise
+            </button>
           </div>
 
           <form onSubmit={(e)=>e.preventDefault()} className="mt-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium">Event Name</label>
-              <input value={slotTitle} onChange={e=>setSlotTitle(e.target.value)} className="mt-2 w-full rounded-md px-3 py-2 border" placeholder="Event title"/>
+              <label className={`block text-sm font-medium ${isDtao ? "text-slate-200" : ""}`}>Event Name</label>
+              <input value={slotTitle} onChange={e=>setSlotTitle(e.target.value)}
+                     className={`mt-2 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`}
+                     placeholder="Event title"/>
             </div>
 
             {bookingMode === "time" ? (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm">
-                      <span className="inline-flex items-center"><CalendarIcon className="h-4 w-4 mr-2 text-slate-400" />Date</span>
+                    <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}>
+                      <span className="inline-flex items-center"><CalendarIcon className={`h-4 w-4 mr-2 ${isDtao ? "text-slate-300" : "text-slate-400"}`} />Date</span>
                     </label>
-                    <input type="date" value={ymd(date)} onChange={e=>setDate(new Date(e.target.value))} className="mt-1 w-full rounded-md px-3 py-2 border" />
+                    <input type="date" value={ymd(date)} onChange={e=>setDate(new Date(e.target.value))} className={`mt-1 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm">
-                      <span className="inline-flex items-center"><ClockIcon className="h-4 w-4 mr-2 text-slate-400" />Start Time</span>
+                    <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}>
+                      <span className="inline-flex items-center"><ClockIcon className={`h-4 w-4 mr-2 ${isDtao ? "text-slate-300" : "text-slate-400"}`} />Start Time</span>
                     </label>
-                    <select value={startTime} onChange={e=>setStartTime(e.target.value)} className="mt-1 w-full rounded-md px-3 py-2 border">
-                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{to12Label(t)}</option>)}
-                    </select>
+
+                    <TimeSelect
+                      value={startTime}
+                      onChange={(v) => setStartTime(v)}
+                      className="mt-1 w-full"
+                      ariaLabel="Start time"
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm">
-                      <span className="inline-flex items-center"><ClockIcon className="h-4 w-4 mr-2 text-slate-400" />End Time</span>
+                    <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}>
+                      <span className="inline-flex items-center"><ClockIcon className={`h-4 w-4 mr-2 ${isDtao ? "text-slate-300" : "text-slate-400"}`} />End Time</span>
                     </label>
-                    <select value={endTime} onChange={e=>setEndTime(e.target.value)} className="mt-1 w-full rounded-md px-3 py-2 border">
-                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{to12Label(t)}</option>)}
-                    </select>
+
+                    <TimeSelect
+                      value={endTime}
+                      onChange={(v) => setEndTime(v)}
+                      className="mt-1 w-full"
+                      ariaLabel="End time"
+                    />
                   </div>
                 </div>
               </>
@@ -532,40 +626,52 @@ export default function SingleBookingPage() {
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm">
-                      <span className="inline-flex items-center"><CalendarIcon className="h-4 w-4 mr-2 text-slate-400" />Start Date</span>
+                    <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}>
+                      <span className="inline-flex items-center"><CalendarIcon className={`h-4 w-4 mr-2 ${isDtao ? "text-slate-300" : "text-slate-400"}`} />Start Date</span>
                     </label>
-                    <input type="date" value={ymd(startDate)} onChange={e=>setStartDate(new Date(e.target.value))} className="mt-1 w-full rounded-md px-3 py-2 border" />
+                    <input type="date" value={ymd(startDate)} onChange={e=>setStartDate(new Date(e.target.value))} className={`mt-1 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`} />
                   </div>
                   <div>
-                    <label className="block text-sm">
-                      <span className="inline-flex items-center"><CalendarIcon className="h-4 w-4 mr-2 text-slate-400" />End Date</span>
+                    <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}>
+                      <span className="inline-flex items-center"><CalendarIcon className={`h-4 w-4 mr-2 ${isDtao ? "text-slate-300" : "text-slate-400"}`} />End Date</span>
                     </label>
-                    <input type="date" value={ymd(endDate)} onChange={e=>setEndDate(new Date(e.target.value))} className="mt-1 w-full rounded-md px-3 py-2 border" />
+                    <input type="date" value={ymd(endDate)} onChange={e=>setEndDate(new Date(e.target.value))} className={`mt-1 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`} />
                   </div>
                 </div>
 
-                <p className="text-sm text-slate-500">Set per-day times below (optional). If left empty for a day we treat it as a full-day booking for that date.</p>
+                <p className={`${isDtao ? "text-slate-300" : "text-slate-500"} text-sm`}>Set per-day times below (optional). If left empty for a day we treat it as a full-day booking for that date.</p>
 
                 <div className="mt-4 space-y-2">
                   {listDatesBetween(startDate, endDate).map(d => {
                     const k = ymd(d);
                     const ds = daySlots[k] || { startTime: TIME_OPTIONS[4], endTime: TIME_OPTIONS[8] };
                     return (
-                      <div key={k} className="p-3 bg-slate-50 rounded border">
+                      <div key={k} className={`${isDtao ? "p-3 bg-black/30 rounded border border-violet-800" : "p-3 bg-slate-50 rounded border"}`}>
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="text-sm font-medium">{k}</div>
-                            <div className="text-xs text-slate-500">Per-day time</div>
+                            <div className={`${isDtao ? "text-slate-100" : "text-sm font-medium"} text-sm font-medium`}>{k}</div>
+                            <div className={`${isDtao ? "text-slate-300" : "text-xs text-slate-500"} text-xs`}>Per-day time</div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <select value={ds.startTime} onChange={e=>setDaySlots(prev=>({ ...prev, [k]: {...(prev[k]||{}), startTime: e.target.value}}))} className="rounded px-2 py-1 border">
-                              {TIME_OPTIONS.map(t => <option key={t} value={t}>{to12Label(t)}</option>)}
-                            </select>
+                            <div className="w-[120px]">
+                              <TimeSelect
+                                value={ds.startTime}
+                                onChange={(v) => setDaySlots(prev=>({ ...prev, [k]: {...(prev[k]||{}), startTime: v}}))}
+                                className=""
+                                ariaLabel={`Start time for ${k}`}
+                              />
+                            </div>
+
                             <span className="text-sm">—</span>
-                            <select value={ds.endTime} onChange={e=>setDaySlots(prev=>({ ...prev, [k]: {...(prev[k]||{}), endTime: e.target.value}}))} className="rounded px-2 py-1 border">
-                              {TIME_OPTIONS.map(t => <option key={t} value={t}>{to12Label(t)}</option>)}
-                            </select>
+
+                            <div className="w-[120px]">
+                              <TimeSelect
+                                value={ds.endTime}
+                                onChange={(v) => setDaySlots(prev=>({ ...prev, [k]: {...(prev[k]||{}), endTime: v}}))}
+                                className=""
+                                ariaLabel={`End time for ${k}`}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -578,19 +684,19 @@ export default function SingleBookingPage() {
             {/* DEPARTMENT dropdown fetched dynamically */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium">Faculty Name</label>
-                <input value={bookingName} onChange={e=>setBookingName(e.target.value)} className="mt-2 w-full rounded-md px-3 py-2 border" />
+                <label className={`block text-sm font-medium ${isDtao ? "text-slate-200" : ""}`}>Faculty Name</label>
+                <input value={bookingName} onChange={e=>setBookingName(e.target.value)} className={`mt-2 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`} />
               </div>
 
               <div>
-                <label className="block text-sm font-medium">Email</label>
-                <input value={email} onChange={e=>setEmail(e.target.value)} className="mt-2 w-full rounded-md px-3 py-2 border" placeholder="name@domain.edu" />
+                <label className={`block text-sm font-medium ${isDtao ? "text-slate-200" : ""}`}>Email</label>
+                <input value={email} onChange={e=>setEmail(e.target.value)} className={`mt-2 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`} placeholder="name@domain.edu" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium">Phone</label>
+                <label className={`block text-sm font-medium ${isDtao ? "text-slate-200" : ""}`}>Phone</label>
                 <input
                   value={phone}
                   onChange={(e)=> {
@@ -599,48 +705,48 @@ export default function SingleBookingPage() {
                     setPhone(digits);
                   }}
                   maxLength={10}
-                  className="mt-2 w-full rounded-md px-3 py-2 border"
+                  className={`mt-2 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`}
                   placeholder="10-digit"
                 />
-                <div className="text-xs text-slate-400 mt-1">Digits only, 10 characters</div>
+                <div className={`${isDtao ? "text-slate-400" : "text-xs text-slate-400"} text-xs mt-1`}>Digits only, 10 characters</div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium">Department</label>
-                <select value={department} onChange={e=>setDepartment(e.target.value)} className="mt-2 w-full rounded-md px-3 py-2 border">
+                <label className={`block text-sm font-medium ${isDtao ? "text-slate-200" : ""}`}>Department</label>
+                <select value={department} onChange={e=>setDepartment(e.target.value)} className={`mt-2 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`}>
                   {departments.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
             </div>
 
             <div className="flex gap-3 mt-4">
-              <button type="button" onClick={doCheckAvailability} className="px-6 py-3 rounded-lg bg-indigo-600 text-white font-semibold">Check Availability</button>
+              <button type="button" onClick={doCheckAvailability} className={`${isDtao ? "px-6 py-3 rounded-lg bg-violet-600 text-white font-semibold" : "px-6 py-3 rounded-lg bg-indigo-600 text-white font-semibold"}`}>Check Availability</button>
 
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={!lastCheckOk}
-                className={`px-6 py-3 rounded-lg font-semibold ${lastCheckOk ? "bg-emerald-600 text-white" : "bg-gray-200 text-slate-500 cursor-not-allowed"}`}
+                className={`px-6 py-3 rounded-lg font-semibold ${lastCheckOk ? (isDtao ? "bg-emerald-600 text-white" : "bg-emerald-600 text-white") : "bg-gray-200 text-slate-500 cursor-not-allowed"}`}
               >
                 Confirm & Book Now
               </button>
             </div>
 
             {/* last check message */}
-            {lastCheckMessage && <div className={`mt-2 text-sm ${lastCheckOk ? "text-emerald-700" : "text-rose-600"}`}>{lastCheckMessage}</div>}
+            {lastCheckMessage && <div className={`mt-2 text-sm ${lastCheckOk ? (isDtao ? "text-emerald-300" : "text-emerald-700") : "text-rose-600"}`}>{lastCheckMessage}</div>}
           </form>
         </section>
 
         {/* RIGHT: Halls + summary */}
         <aside className="space-y-6">
-          <div className="bg-white rounded-lg border p-4 shadow-sm">
+          <div className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white"} rounded-lg p-4 shadow-sm`}>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-slate-800">Select a Hall</h3>
-              <div className="text-sm text-slate-500">Click a hall (availability shown for selected date)</div>
+              <h3 className={`${isDtao ? "text-slate-100" : "text-slate-800"} text-lg font-semibold`}>Select a Hall</h3>
+              <div className={`${isDtao ? "text-slate-300" : "text-sm text-slate-500"}`}>Click a hall (availability shown for selected date)</div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {loading ? <div>Loading halls...</div> : halls.length === 0 ? <div>No halls</div> : halls.map(h => {
+              {loading ? <div className={`${isDtao ? "text-slate-300" : ""}`}>Loading halls...</div> : halls.length === 0 ? <div className={`${isDtao ? "text-slate-300" : ""}`}>No halls</div> : halls.map(h => {
                 const key = h._id || h.id || h.name;
                 const sel = selectedHall === (h.name || key);
                 const onDate = bookingMode === "time" ? date : startDate;
@@ -661,17 +767,17 @@ export default function SingleBookingPage() {
 
                 return (
                   <div key={key} className="relative">
-                    <button onClick={()=>{ setSelectedHall(h.name || key); setSelectedHallObj(h); setLastCheckOk(false); setLastCheckMessage(""); }} className={`w-full text-left p-0 rounded-lg border ${sel ? "border-emerald-500 shadow-lg" : "border-gray-200"}`}>
-                      <div className={`h-20 flex items-center justify-center font-bold ${sel ? "bg-emerald-500 text-white" : "bg-slate-50 text-slate-800"}`}>
+                    <button onClick={()=>{ setSelectedHall(h.name || key); setSelectedHallObj(h); setLastCheckOk(false); setLastCheckMessage(""); }} className={`w-full text-left p-0 rounded-lg ${sel ? (isDtao ? "border-emerald-500 shadow-lg border" : "border-emerald-500 shadow-lg border") : "border-gray-200"}`}>
+                      <div className={`${sel ? (isDtao ? "h-20 flex items-center justify-center font-bold bg-emerald-600 text-white" : "h-20 flex items-center justify-center font-bold bg-emerald-500 text-white") : "h-20 flex items-center justify-center font-bold bg-slate-50 text-slate-800"}`}>
                         <span>{h.name}</span>
                       </div>
 
-                      <div className="p-3">
+                      <div className={`${isDtao ? "p-3" : "p-3"}`}>
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="text-sm font-semibold">{h.name}</div>
-                            <div className="text-xs text-slate-500 mt-2 flex items-center gap-2">
-                              <UsersIcon className="h-4 w-4 text-slate-400" />
+                            <div className={`${isDtao ? "text-slate-100" : "text-sm font-semibold"} text-sm font-semibold`}>{h.name}</div>
+                            <div className={`${isDtao ? "text-slate-300" : "text-xs text-slate-500"} mt-2 flex items-center gap-2 text-xs`}>
+                              <UsersIcon className={`h-4 w-4 ${isDtao ? "text-slate-300" : "text-slate-400"}`} />
                               <span>Capacity: {h.capacity ?? "—"}</span>
                             </div>
                           </div>
@@ -687,17 +793,17 @@ export default function SingleBookingPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border p-4 shadow-sm">
-            <h4 className="text-lg font-semibold text-slate-800 mb-3">Selection</h4>
-            <div className="text-sm text-slate-600 space-y-2">
-              <div><span className="text-indigo-600">Hall:</span> {selectedHallObj?.name || selectedHall || "Not selected"}</div>
-              <div><span className="text-indigo-600">Event:</span> {slotTitle || "Not specified"}</div>
-              <div><span className="text-indigo-600">Date:</span> {bookingMode === "time" ? ymd(date) : `${ymd(startDate)} → ${ymd(endDate)}`}</div>
-              <div><span className="text-indigo-600">Time:</span> {bookingMode === "time" ? `${to12Label(startTime)} — ${to12Label(endTime)}` : "Per-day times / full-day"}</div>
+          <div className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white"} rounded-lg p-4 shadow-sm`}>
+            <h4 className={`${isDtao ? "text-slate-100" : "text-lg font-semibold text-slate-800"} text-lg font-semibold`}>Selection</h4>
+            <div className={`text-sm ${isDtao ? "text-slate-300" : "text-slate-600"} space-y-2`}>
+              <div><span className={`${isDtao ? "text-violet-300" : "text-indigo-600"}`}>Hall:</span> {selectedHallObj?.name || selectedHall || "Not selected"}</div>
+              <div><span className={`${isDtao ? "text-violet-300" : "text-indigo-600"}`}>Event:</span> {slotTitle || "Not specified"}</div>
+              <div><span className={`${isDtao ? "text-violet-300" : "text-indigo-600"}`}>Date:</span> {bookingMode === "time" ? ymd(date) : `${ymd(startDate)} → ${ymd(endDate)}`}</div>
+              <div><span className={`${isDtao ? "text-violet-300" : "text-indigo-600"}`}>Time:</span> {bookingMode === "time" ? `${to12Label(startTime)} — ${to12Label(endTime)}` : "Per-day times / full-day"}</div>
             </div>
 
             <div className="mt-4">
-              <button onClick={()=>{ resetForm(); }} className="w-full py-2 rounded bg-gray-100">Clear</button>
+              <button onClick={()=>{ resetForm(); }} className={`${isDtao ? "w-full py-2 rounded bg-transparent border border-violet-700 text-slate-200" : "w-full py-2 rounded bg-gray-100"}`}>Clear</button>
             </div>
           </div>
         </aside>

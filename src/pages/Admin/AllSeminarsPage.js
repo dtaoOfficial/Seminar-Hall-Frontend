@@ -1,27 +1,27 @@
 // src/pages/Admin/AllSeminarsPage.jsx
 import React, { useState, useEffect, useCallback } from "react";
-import { ToastContainer, toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import "react-toastify/dist/ReactToastify.css";
 import api from "../../utils/api";
+import { useNotification } from "../../components/NotificationsProvider";
+import { useTheme } from "../../contexts/ThemeContext";
 
 /**
- * AllSeminarsPage — Tailwind version
- * - Table shown when viewport >= md (tablet + desktop)
- * - Cards shown when viewport < md (mobile)
- * - Uses window.matchMedia to determine view and listens for changes
- * - Robust parsing of API responses (handles array or { seminars: [] } shapes)
+ * AllSeminarsPage — Tailwind + theme-aware
+ * unchanged logic; styling adapted for 'dtao' theme.
  */
 
 const STATUS_APPROVED = "APPROVED";
 const STATUS_PENDING = "PENDING";
 
 const AllSeminarsPage = () => {
+  const { notify } = useNotification();
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
+
   const [loading, setLoading] = useState(true);
   const [seminars, setSeminars] = useState([]);
   const [error, setError] = useState("");
   const [isDesktopView, setIsDesktopView] = useState(() => {
-    // initial: match Tailwind md breakpoint (768px)
     if (typeof window !== "undefined" && window.matchMedia) {
       return window.matchMedia("(min-width: 768px)").matches;
     }
@@ -30,7 +30,6 @@ const AllSeminarsPage = () => {
 
   const navigate = useNavigate();
 
-  // Normalize helper for different API shapes
   const normalizeSeminar = (s) => ({
     id: s.id ?? s._id ?? s.seminarId ?? `seminar-${Math.random()}`,
     hallName: s.hallName ?? s.hall ?? "",
@@ -69,14 +68,10 @@ const AllSeminarsPage = () => {
     source: "request",
   });
 
-  // Safe extractor for API response shapes
   const ensureArray = (res) => {
     if (!res) return [];
-    // res might be array already
     if (Array.isArray(res)) return res;
-    // res might be response object with .data array
     if (res.data && Array.isArray(res.data)) return res.data;
-    // different shapes
     if (res.seminars && Array.isArray(res.seminars)) return res.seminars;
     if (res.requests && Array.isArray(res.requests)) return res.requests;
     if (res.data && res.data.seminars && Array.isArray(res.data.seminars)) return res.data.seminars;
@@ -123,28 +118,25 @@ const AllSeminarsPage = () => {
       });
 
       setSeminars(combined);
-
-      // debug log — remove if you want
       // eslint-disable-next-line no-console
       console.debug("Fetched", { rawSeminars: rawSeminars.length, rawRequests: rawRequests.length, combined: combined.length });
     } catch (err) {
       console.error("Fetch error", err);
       setError("Failed to fetch seminars/requests. Check console/network.");
+      notify("Failed to fetch seminars/requests", "error", 3500);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notify]);
 
   useEffect(() => {
     fetchSeminars();
   }, [fetchSeminars]);
 
-  // watch viewport changes using matchMedia so we can toggle table/cards reliably
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
-    const mq = window.matchMedia("(min-width: 768px)"); // Tailwind md
+    const mq = window.matchMedia("(min-width: 768px)");
     const apply = (ev) => setIsDesktopView(Boolean(ev.matches));
-    // initial already set from state initializer, but update just in case
     setIsDesktopView(Boolean(mq.matches));
     mq.addEventListener ? mq.addEventListener("change", apply) : mq.addListener(apply);
     return () => {
@@ -174,33 +166,42 @@ const AllSeminarsPage = () => {
         await api.delete(`/seminars/${item.id}`);
       }
       setSeminars((prev) => prev.filter((s) => s.id !== item.id));
-      toast.success("Deleted successfully");
+      notify("Deleted successfully", "success", 2200);
     } catch (err) {
       console.error("Error deleting item:", err?.response || err);
       const serverMsg =
         (err.response && (err.response.data?.message || err.response.data)) || err.message || "Failed to delete";
-      toast.error(String(serverMsg));
+      notify(String(serverMsg), "error", 4000);
     }
   };
 
   const handleEdit = (item) => {
-    navigate(`/admin/update/${item.id}?source=${item.source}`);
+    navigate(`/admin/update/${item.id}?source=${encodeURIComponent(item.source)}`);
   };
 
+  // theme helpers
+  const pageBg = isDtao ? "bg-[#08050b] text-slate-100" : "bg-gray-50 text-slate-900";
+  const containerBg = isDtao ? "bg-black/40 border border-violet-900" : "bg-white border border-gray-100";
+  const mutedText = isDtao ? "text-slate-300" : "text-gray-500";
+  const headingText = isDtao ? "text-slate-100" : "text-gray-800";
+  const tableHeadBg = isDtao ? "bg-transparent" : "bg-gray-50";
+  const rowHover = isDtao ? "hover:bg-black/30" : "hover:bg-gray-50";
+  const divider = isDtao ? "divide-violet-800" : "divide-gray-200";
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className={`min-h-screen py-8 ${pageBg}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Top */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-800">All Seminars (Edit / Delete)</h2>
-            <p className="text-sm text-gray-500 mt-1">Combined view of confirmed seminars and booking requests.</p>
+            <h2 className={`text-2xl font-semibold ${headingText}`}>All Seminars (Edit / Delete)</h2>
+            <p className={`${mutedText} text-sm mt-1`}>Combined view of confirmed seminars and booking requests.</p>
           </div>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => fetchSeminars()}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-gray-200 shadow-sm hover:shadow-md transition transform hover:-translate-y-0.5"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm transition transform ${isDtao ? "bg-violet-700 text-white hover:bg-violet-600" : "bg-white border border-gray-200 hover:shadow-md"} `}
             >
               Refresh
             </button>
@@ -208,63 +209,66 @@ const AllSeminarsPage = () => {
         </div>
 
         {/* Card/Container */}
-        <div className="bg-white rounded-xl shadow border border-gray-100 overflow-hidden">
+        <div className={`${containerBg} rounded-xl shadow overflow-hidden`}>
           {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading…</div>
+            <div className="p-8 text-center text-gray-400">Loading…</div>
           ) : error ? (
-            <div className="p-8 text-center text-rose-600">{error}</div>
+            <div className="p-8 text-center text-rose-500">{error}</div>
           ) : seminars.length === 0 ? (
             <div className="p-8 text-center text-gray-500">No seminars or booking requests found.</div>
           ) : (
             <>
-              {/* Render TABLE when viewport >= md (tablet+desktop) */}
               {isDesktopView && (
                 <div className="w-full overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className={`min-w-full divide-y ${divider}`}>
+                    <thead className={tableHeadBg}>
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hall</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Booked By</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied At</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Hall</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Date</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Start</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>End</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Title</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Booked By</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Department</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Email</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Phone</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Applied At</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Status</th>
+                        <th className={`px-4 py-3 text-left text-xs font-medium ${mutedText} uppercase tracking-wider`}>Source</th>
+                        <th className={`px-4 py-3 text-right text-xs font-medium ${mutedText} uppercase tracking-wider`}>Action</th>
                       </tr>
                     </thead>
 
-                    <tbody className="bg-white divide-y divide-gray-100">
+                    <tbody className={`${isDtao ? "bg-black/40" : "bg-white"} divide-y ${divider}`}>
                       {seminars.map((s) => (
-                        <tr key={s.id} className="hover:bg-gray-50 transition">
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800">{s.hallName || "—"}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{(s.date || "").split("T")[0] || "—"}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{s.startTime || "--"}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{s.endTime || "--"}</td>
+                        <tr key={s.id} className={`${rowHover} transition`}>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">{s.hallName || "—"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">{(s.date || "").split("T")[0] || "—"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">{s.startTime || "--"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">{s.endTime || "--"}</td>
 
-                          <td className="px-4 py-3 text-sm text-gray-800">
+                          <td className="px-4 py-3 text-sm">
                             <div className="max-w-[220px] truncate">{s.slotTitle || "—"}</div>
                           </td>
 
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{s.bookingName || "—"}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{s.department || "—"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">{s.bookingName || "—"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">{s.department || "—"}</td>
 
-                          <td className="px-4 py-3 text-sm text-gray-700">
+                          <td className="px-4 py-3 text-sm">
                             <div className="max-w-[200px] truncate">{s.email || "—"}</div>
                           </td>
 
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{s.phone || "—"}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{formatAppliedAt(s.appliedAt)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">{s.phone || "—"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">{formatAppliedAt(s.appliedAt)}</td>
 
                           <td className="px-4 py-3 whitespace-nowrap text-sm">
                             <span
                               className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                s.status === STATUS_APPROVED ? "bg-emerald-100 text-emerald-700" : s.status === STATUS_PENDING ? "bg-amber-100 text-amber-700" : "bg-rose-100 text-rose-700"
+                                s.status === STATUS_APPROVED
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : s.status === STATUS_PENDING
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-rose-100 text-rose-700"
                               }`}
                               aria-label={`Status ${s.status}`}
                             >
@@ -272,13 +276,13 @@ const AllSeminarsPage = () => {
                             </span>
                           </td>
 
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{s.source}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-400">{s.source}</td>
 
                           <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                             <div className="inline-flex gap-2">
                               <button
                                 onClick={() => handleEdit(s)}
-                                className="px-2 py-1 rounded-md bg-yellow-50 text-yellow-800 hover:shadow-sm transition transform hover:-translate-y-0.5"
+                                className={`px-2 py-1 rounded-md hover:shadow-sm transition transform hover:-translate-y-0.5 ${isDtao ? "bg-yellow-600/10 text-amber-300" : "bg-yellow-50 text-yellow-800"}`}
                                 title="Edit"
                                 aria-label={`Edit ${s.slotTitle}`}
                               >
@@ -286,7 +290,7 @@ const AllSeminarsPage = () => {
                               </button>
                               <button
                                 onClick={() => handleDelete(s)}
-                                className="px-2 py-1 rounded-md bg-rose-50 text-rose-700 hover:shadow-sm transition transform hover:-translate-y-0.5"
+                                className={`px-2 py-1 rounded-md hover:shadow-sm transition transform hover:-translate-y-0.5 ${isDtao ? "bg-rose-600/10 text-rose-300" : "bg-rose-50 text-rose-700"}`}
                                 title="Delete"
                                 aria-label={`Delete ${s.slotTitle}`}
                               >
@@ -301,17 +305,16 @@ const AllSeminarsPage = () => {
                 </div>
               )}
 
-              {/* Render CARDS when viewport < md (mobile) */}
               {!isDesktopView && (
-                <div className="divide-y divide-gray-200 md:hidden">
+                <div className={`divide-y ${divider} md:hidden`}>
                   {seminars.map((s) => (
                     <div key={`card-${s.id}`} className="p-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-gray-800 truncate">{s.slotTitle || "—"}</div>
-                          <div className="text-xs text-gray-500">{s.hallName || "—"} • {(s.date || "").split("T")[0] || "—"}</div>
-                          <div className="text-xs text-gray-500 mt-1">{s.bookingName || "—"} {s.department ? `• ${s.department}` : ""}</div>
-                          <div className="text-xs text-gray-400 mt-1">{formatAppliedAt(s.appliedAt)}</div>
+                          <div className={`text-sm font-semibold truncate ${isDtao ? "text-slate-100" : "text-gray-800"}`}>{s.slotTitle || "—"}</div>
+                          <div className={`${isDtao ? "text-slate-300" : "text-xs text-gray-500"}`}>{s.hallName || "—"} • {(s.date || "").split("T")[0] || "—"}</div>
+                          <div className={`${isDtao ? "text-slate-300" : "text-xs text-gray-500"} mt-1`}>{s.bookingName || "—"} {s.department ? `• ${s.department}` : ""}</div>
+                          <div className={`${isDtao ? "text-slate-400" : "text-xs text-gray-400"} mt-1`}>{formatAppliedAt(s.appliedAt)}</div>
                         </div>
 
                         <div className="flex-shrink-0 flex flex-col items-end gap-2">
@@ -322,13 +325,13 @@ const AllSeminarsPage = () => {
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleEdit(s)}
-                              className="px-3 py-1 rounded-md bg-yellow-50 text-yellow-800 text-xs"
+                              className={`px-3 py-1 rounded-md text-xs ${isDtao ? "bg-yellow-600/10 text-amber-300" : "bg-yellow-50 text-yellow-800"}`}
                             >
                               Edit
                             </button>
                             <button
                               onClick={() => handleDelete(s)}
-                              className="px-3 py-1 rounded-md bg-rose-50 text-rose-700 text-xs"
+                              className={`px-3 py-1 rounded-md text-xs ${isDtao ? "bg-rose-600/10 text-rose-300" : "bg-rose-50 text-rose-700"}`}
                             >
                               Delete
                             </button>
@@ -343,10 +346,8 @@ const AllSeminarsPage = () => {
           )}
         </div>
 
-        <div className="text-sm text-gray-500 mt-2">Tip: Requests are shown with source=`request`. Seminars override requests for same slot.</div>
+        <div className={`${isDtao ? "text-slate-300" : "text-sm text-gray-500"} mt-2`}>Tip: Requests are shown with source=`request`. Seminars override requests for same slot.</div>
       </div>
-
-      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };

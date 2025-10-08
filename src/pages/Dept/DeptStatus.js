@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "../../contexts/ThemeContext";
 
 const authHeader = () => {
   const token = localStorage.getItem("token");
@@ -23,6 +24,9 @@ const normalizeSeminar = (s) => ({
 });
 
 const DeptStatus = ({ user }) => {
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
+
   const [seminars, setSeminars] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -50,6 +54,7 @@ const DeptStatus = ({ user }) => {
 
     setLoading(true);
     try {
+      // keep endpoint exactly as original
       const res = await axios.get("http://localhost:8080/api/seminars", authHeader());
       const raw = Array.isArray(res.data) ? res.data : [];
 
@@ -94,11 +99,9 @@ const DeptStatus = ({ user }) => {
     const onChange = (e) => {
       setIsMobile(e.matches);
     };
-    // add listener in cross-browser compatible way
     if (mq.addEventListener) mq.addEventListener("change", onChange);
     else mq.addListener(onChange);
 
-    // initial set (already set in state initializer, but safe)
     setIsMobile(mq.matches);
 
     return () => {
@@ -145,24 +148,30 @@ const DeptStatus = ({ user }) => {
     }
   };
 
-  // small helper to render status pill
+  // small helper to render status pill (theme-aware)
   const StatusPill = ({ status = "" }) => {
     const s = (status || "").toUpperCase();
     const base = "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold";
-    if (s === "PENDING") return <span className={`${base} bg-yellow-100 text-yellow-800`}>Pending</span>;
-    if (s === "REJECTED") return <span className={`${base} bg-rose-100 text-rose-800`}>Rejected</span>;
-    if (s === "CANCELLED") return <span className={`${base} bg-slate-100 text-slate-800`}>Cancelled</span>;
-    return <span className={`${base} bg-gray-100 text-gray-800`}>{s || "N/A"}</span>;
+    if (s === "PENDING") return <span className={`${base} ${isDtao ? "bg-yellow-900/20 text-yellow-200" : "bg-yellow-100 text-yellow-800"}`}>Pending</span>;
+    if (s === "REJECTED") return <span className={`${base} ${isDtao ? "bg-rose-900/20 text-rose-200" : "bg-rose-100 text-rose-800"}`}>Rejected</span>;
+    if (s === "CANCELLED") return <span className={`${base} ${isDtao ? "bg-slate-800 text-slate-200" : "bg-slate-100 text-slate-800"}`}>Cancelled</span>;
+    return <span className={`${base} ${isDtao ? "bg-slate-800 text-slate-200" : "bg-gray-100 text-gray-800"}`}>{s || "N/A"}</span>;
   };
 
+  // theme helpers
+  const pageBg = isDtao ? "bg-[#08050b] text-slate-100" : "bg-gray-50 text-slate-900";
+  const cardBg = isDtao ? "bg-black/40 border border-violet-900" : "bg-white";
+  const inputBase = "px-3 py-2 rounded-md focus:ring-2 focus:outline-none transition";
+  const inputClass = isDtao ? `${inputBase} bg-transparent border-violet-700 text-slate-100` : `${inputBase} bg-white border border-gray-200`;
+
   return (
-    <div className="p-3">
+    <div className={`p-3 ${pageBg}`}>
       <div className="flex items-center justify-between gap-3 mb-4">
-        <h2 className="text-lg font-extrabold"> My Requests (Pending / Rejected / Cancelled)</h2>
+        <h2 className={`text-lg font-extrabold ${isDtao ? "text-slate-100" : "text-gray-900"}`}> My Requests (Pending / Rejected / Cancelled)</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchSeminars}
-            className="px-3 py-2 border rounded-md bg-white hover:shadow-sm transition"
+            className={`${isDtao ? "px-3 py-2 rounded-md bg-violet-700 text-white hover:bg-violet-600" : "px-3 py-2 border rounded-md bg-white hover:shadow-sm"} transition`}
             disabled={loading}
           >
              Refresh
@@ -174,14 +183,14 @@ const DeptStatus = ({ user }) => {
       <div className="flex flex-wrap gap-2 items-center mb-4">
         <input
           aria-label="Search"
-          className="px-3 py-2 border rounded-md w-full md:w-64 focus:ring-2 transition"
+          className={`${inputClass} w-full md:w-64`}
           placeholder="Search hall/title/name..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
 
         <select
-          className="px-3 py-2 border rounded-md focus:ring-2 transition"
+          className={`${inputClass}`}
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
         >
@@ -192,14 +201,14 @@ const DeptStatus = ({ user }) => {
         </select>
 
         <input
-          className="px-3 py-2 border rounded-md focus:ring-2 transition"
+          className={`${inputClass}`}
           type="date"
           value={filterDate}
           onChange={(e) => setFilterDate(e.target.value)}
         />
 
         <button
-          className="px-3 py-2 bg-blue-600 text-white rounded-md hover:shadow-md transition"
+          className={`${isDtao ? "px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-500" : "px-3 py-2 bg-blue-600 text-white rounded-md hover:shadow-md"} transition`}
           onClick={() => {
             setSearch("");
             setFilterStatus("ALL");
@@ -212,40 +221,40 @@ const DeptStatus = ({ user }) => {
 
       {/* Loading */}
       {loading ? (
-        <div className="py-6 text-center text-gray-600">⏳ Loading...</div>
+        <div className={`${isDtao ? "py-6 text-slate-300" : "py-6 text-gray-600"} text-center`}>⏳ Loading...</div>
       ) : filteredView.length === 0 ? (
-        <div className="py-8 text-center text-gray-500">No seminars found</div>
+        <div className={`${isDtao ? "py-8 text-slate-400" : "py-8 text-gray-500"} text-center`}>No seminars found</div>
       ) : (
         <>
           {/* Table for tablet/desktop */}
           {!isMobile && (
-            <div className="overflow-auto rounded-md border bg-white shadow-sm transition-all duration-200">
+            <div className={`overflow-auto rounded-md ${cardBg} shadow-sm transition-all duration-200`}>
               <table className="min-w-full divide-y">
-                <thead className="bg-gray-50">
+                <thead className={isDtao ? "bg-transparent" : "bg-gray-50"}>
                   <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Date</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Hall</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Slot</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Title</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Booked By</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Department</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Status</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Remarks</th>
-                    <th className="px-4 py-3 text-center text-sm font-semibold">Action</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${isDtao ? "text-slate-300" : "text-gray-700"}`}>Date</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${isDtao ? "text-slate-300" : "text-gray-700"}`}>Hall</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${isDtao ? "text-slate-300" : "text-gray-700"}`}>Slot</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${isDtao ? "text-slate-300" : "text-gray-700"}`}>Title</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${isDtao ? "text-slate-300" : "text-gray-700"}`}>Booked By</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${isDtao ? "text-slate-300" : "text-gray-700"}`}>Department</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${isDtao ? "text-slate-300" : "text-gray-700"}`}>Status</th>
+                    <th className={`px-4 py-3 text-left text-sm font-semibold ${isDtao ? "text-slate-300" : "text-gray-700"}`}>Remarks</th>
+                    <th className={`px-4 py-3 text-center text-sm font-semibold ${isDtao ? "text-slate-300" : "text-gray-700"}`}>Action</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y">
+                <tbody className={isDtao ? "bg-black/40 divide-y divide-violet-800" : "bg-white divide-y"}>
                   {filteredView.map((s, idx) => (
                     <tr
                       key={s.id}
-                      className="hover:shadow-md hover:bg-gray-50 transition-transform transform hover:-translate-y-0.5"
+                      className={`${isDtao ? "hover:bg-black/30" : "hover:bg-gray-50"} hover:shadow-md transition-transform transform hover:-translate-y-0.5`}
                       style={{ transitionDelay: `${Math.min(100, idx * 10)}ms` }}
                     >
                       <td className="px-4 py-3 text-sm whitespace-nowrap">{(s.date || "").split("T")[0]}</td>
                       <td className="px-4 py-3 text-sm whitespace-nowrap">{s.hallName}</td>
                       <td className="px-4 py-3 text-sm">
                         <div className="font-medium">{s.slot}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className={`${isDtao ? "text-slate-300" : "text-xs text-gray-500"}`}>
                           [{s.startTime || "--"} - {s.endTime || "--"}]
                         </div>
                       </td>
@@ -257,7 +266,7 @@ const DeptStatus = ({ user }) => {
                       <td className="px-4 py-3 text-sm text-center">
                         <button
                           onClick={() => handleDelete(s)}
-                          className="px-3 py-1 rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100 transition"
+                          className={`${isDtao ? "px-3 py-1 rounded-md bg-rose-600/10 text-rose-300 hover:bg-rose-600/20" : "px-3 py-1 rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100"} transition`}
                           disabled={saving}
                         >
                            Delete
@@ -276,19 +285,19 @@ const DeptStatus = ({ user }) => {
               {filteredView.map((s, idx) => (
                 <article
                   key={s.id}
-                  className="bg-white/90 backdrop-blur-sm border border-gray-100 rounded-xl p-4 shadow-sm transition transform hover:-translate-y-1 motion-safe:animate-[fadeIn_220ms_ease] "
+                  className={`${cardBg} p-4 rounded-xl shadow-sm transition transform hover:-translate-y-1`}
                   style={{ transitionDelay: `${Math.min(150, idx * 20)}ms` }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-extrabold truncate">{s.slotTitle || s.hallName}</h3>
-                        <span className="text-xs text-gray-500">{(s.date || "").split("T")[0]}</span>
+                        <h3 className={`text-sm font-extrabold truncate ${isDtao ? "text-slate-100" : ""}`}>{s.slotTitle || s.hallName}</h3>
+                        <span className={`${isDtao ? "text-slate-300" : "text-xs text-gray-500"}`}>{(s.date || "").split("T")[0]}</span>
                       </div>
 
-                      <div className="mt-2 text-sm text-slate-700">
+                      <div className={`${isDtao ? "text-slate-200" : "text-sm text-slate-700"} mt-2`}>
                         <div><strong>Hall:</strong> {s.hallName}</div>
-                        <div><strong>Slot:</strong> {s.slot} <span className="text-xs text-gray-500">[{s.startTime || "--"} - {s.endTime || "--"}]</span></div>
+                        <div><strong>Slot:</strong> {s.slot} <span className={`${isDtao ? "text-slate-300" : "text-xs text-gray-500"}`}>[{s.startTime || "--"} - {s.endTime || "--"}]</span></div>
                         <div><strong>By:</strong> {s.bookingName}</div>
                         <div className="mt-2"><strong>Remarks:</strong> {s.remarks || "—"}</div>
                       </div>
@@ -298,7 +307,7 @@ const DeptStatus = ({ user }) => {
                       <StatusPill status={s.status} />
                       <button
                         onClick={() => handleDelete(s)}
-                        className="px-3 py-1 rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100 transition"
+                        className={`${isDtao ? "px-3 py-1 rounded-md bg-rose-600/10 text-rose-300 hover:bg-rose-600/20" : "px-3 py-1 rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100"} transition`}
                         disabled={saving}
                       >
                         ❌

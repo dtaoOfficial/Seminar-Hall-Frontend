@@ -1,10 +1,14 @@
 // src/pages/Admin/ManageDepartmentsPage.jsx
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import api from "../../utils/api";
-import { ToastContainer, toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { useNotification } from "../../components/NotificationsProvider";
+import { useTheme } from "../../contexts/ThemeContext";
 
 const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
+  const { notify } = useNotification();
+  const { theme } = useTheme() || {};
+  const isDtao = theme === "dtao";
+
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,6 +24,10 @@ const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
   // show table/cards depending on screen size
   const [showTable, setShowTable] = useState(true);
   const [showCards, setShowCards] = useState(false);
+
+  // refs for smooth scrolling / focus
+  const mainRef = useRef(null);
+  const modalInputRef = useRef(null);
 
   // toggle table/cards on resize
   useEffect(() => {
@@ -37,6 +45,17 @@ const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // helper to extract server error message
+  const errMsg = (err) => {
+    return (
+      err?.response?.data?.message ||
+      (typeof err?.response?.data === "string" ? err.response.data : null) ||
+      err?.response?.statusText ||
+      err?.message ||
+      "Unknown error"
+    );
+  };
+
   // fetch list
   const fetchDepartments = useCallback(async () => {
     setLoading(true);
@@ -46,19 +65,22 @@ const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
         ? res.data.map((d) => (typeof d === "string" ? { name: d, id: d } : d))
         : [];
       setDepartments(arr);
+      // smooth scroll main into view so user sees updated list
+      if (mainRef.current && mainRef.current.scrollIntoView) {
+        try {
+          mainRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (e) {
+          // ignore
+        }
+      }
     } catch (err) {
       console.error("Error fetching departments:", err);
-      const msg =
-        err?.response?.data?.message ||
-        (typeof err?.response?.data === "string" ? err.response.data : null) ||
-        err?.response?.statusText ||
-        err?.message;
-      toast.error("⚠️ Failed to fetch departments" + (msg ? `: ${msg}` : ""));
+      notify(`Failed to fetch departments: ${errMsg(err)}`, "error", 3000);
       setDepartments([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notify]);
 
   useEffect(() => {
     fetchDepartments();
@@ -69,24 +91,19 @@ const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
     e?.preventDefault();
     const name = (newName || "").trim();
     if (!name) {
-      toast.warn("Please enter a department name");
+      notify("Please enter a department name", "warn", 2000);
       return;
     }
     setAdding(true);
     try {
       await api.post("/departments", { name });
-      toast.success("✅ Department added");
+      notify("Department added", "success", 2000);
       setNewName("");
       await fetchDepartments();
       if (typeof fetchDepartmentsProp === "function") fetchDepartmentsProp();
     } catch (err) {
       console.error("Add department error:", err);
-      const serverMsg =
-        err?.response?.data?.message ||
-        (typeof err?.response?.data === "string" ? err.response.data : null) ||
-        err?.response?.statusText ||
-        err?.message;
-      toast.error(`⚠️ ${serverMsg || "Failed to add department"}`);
+      notify(errMsg(err) || "Failed to add department", "error", 3500);
     } finally {
       setAdding(false);
     }
@@ -96,6 +113,15 @@ const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
   const handleEditOpen = (dept) => {
     setEditing(dept);
     setEditName(dept.name || "");
+    // allow modal to open then focus input (see effect below)
+    setTimeout(() => {
+      if (modalInputRef.current) {
+        try {
+          modalInputRef.current.focus({ preventScroll: true });
+          modalInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch (e) {}
+      }
+    }, 120);
   };
 
   // EDIT save
@@ -104,26 +130,21 @@ const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
     if (!editing) return;
     const name = (editName || "").trim();
     if (!name) {
-      toast.warn("Please enter a department name");
+      notify("Please enter a department name", "warn", 2000);
       return;
     }
     setSavingEdit(true);
     try {
       const id = editing.id ?? editing._id ?? editing.name;
       await api.put(`/departments/${id}`, { name });
-      toast.success("✅ Department updated");
+      notify("Department updated", "success", 2000);
       setEditing(null);
       setEditName("");
       await fetchDepartments();
       if (typeof fetchDepartmentsProp === "function") fetchDepartmentsProp();
     } catch (err) {
       console.error("Update dept error:", err);
-      const serverMsg =
-        err?.response?.data?.message ||
-        (typeof err?.response?.data === "string" ? err.response.data : null) ||
-        err?.response?.statusText ||
-        err?.message;
-      toast.error(`⚠️ ${serverMsg || "Failed to update department"}`);
+      notify(errMsg(err) || "Failed to update department", "error", 3500);
     } finally {
       setSavingEdit(false);
     }
@@ -140,89 +161,84 @@ const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
     try {
       const id = dept.id ?? dept._id ?? dept.name;
       await api.delete(`/departments/${id}`);
-      toast.success("🗑️ Department deleted");
+      notify("Department deleted", "success", 2000);
       await fetchDepartments();
       if (typeof fetchDepartmentsProp === "function") fetchDepartmentsProp();
     } catch (err) {
       console.error("Delete dept error:", err);
-      const serverMsg =
-        err?.response?.data?.message ||
-        (typeof err?.response?.data === "string" ? err.response.data : null) ||
-        err?.response?.statusText ||
-        err?.message;
-      toast.error(`⚠️ ${serverMsg || "Failed to delete department"}`);
+      notify(errMsg(err) || "Failed to delete department", "error", 3500);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div
+      ref={mainRef}
+      className={`${isDtao ? "min-h-screen bg-[#08050b] text-slate-100" : "min-h-screen bg-gray-50 text-slate-900"} py-8`}
+    >
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
         <div>
-          <h2 className="text-2xl font-semibold text-gray-800">Manage Departments / Courses</h2>
-          <p className="text-sm text-gray-500 mt-1">Add, edit or remove departments (e.g. MCA, MBA, ME)</p>
+          <h2 className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-2xl font-semibold`}>Manage Departments / Courses</h2>
+          <p className={`${isDtao ? "text-slate-300" : "text-sm text-gray-500"} mt-1`}>Add, edit or remove departments (e.g. MCA, MBA, ME)</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
-          <div className="p-4 md:p-6 space-y-6">
+        <div className={`${isDtao ? "bg-black/40 border border-violet-900" : "bg-white"} rounded-lg shadow overflow-hidden`}>
+          <div className={`p-4 md:p-6 space-y-6 ${isDtao ? "text-slate-100" : ""}`}>
             {/* Add form */}
-            <form
-              onSubmit={handleAdd}
-              className="flex flex-col md:flex-row md:items-center gap-3"
-            >
+            <form onSubmit={handleAdd} className="flex flex-col md:flex-row md:items-center gap-3">
               <input
                 type="text"
                 placeholder="Enter department name (e.g. MCA)"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 disabled={adding}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className={`${isDtao ? "flex-1 px-3 py-2 border border-violet-700 bg-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-violet-700" : "flex-1 px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200"}`}
               />
               <button
                 type="submit"
                 disabled={adding}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-60"
+                className={`px-4 py-2 ${isDtao ? "bg-violet-600 hover:bg-violet-700 text-white" : "bg-blue-600 text-white hover:bg-blue-700"} rounded-md disabled:opacity-60`}
               >
                 {adding ? "Adding…" : "Add Department"}
               </button>
             </form>
 
-            <div className="border-t border-gray-100" />
+            <div className={`${isDtao ? "border-t border-violet-800" : "border-t border-gray-100"}`} />
 
             {/* List */}
             {loading ? (
-              <div className="py-8 text-center text-gray-500">Loading departments…</div>
+              <div className={`${isDtao ? "py-8 text-center text-slate-300" : "py-8 text-center text-gray-500"}`}>Loading departments…</div>
             ) : departments.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">No departments found.</div>
+              <div className={`${isDtao ? "py-8 text-center text-slate-300" : "py-8 text-center text-gray-500"}`}>No departments found.</div>
             ) : (
               <>
                 {showTable && (
                   <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+                    <table className="min-w-full text-sm divide-y" style={{ borderCollapse: "collapse" }}>
+                      <thead className={`${isDtao ? "bg-black/30" : "bg-gray-50"}`}>
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">#</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Actions</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider w-12">#</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider w-40">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-100">
+                      <tbody className={`${isDtao ? "bg-black/20 divide-y divide-violet-800" : "bg-white divide-y divide-gray-100"}`}>
                         {departments.map((d, idx) => (
                           <tr key={d.id ?? d._id ?? d.name ?? idx}>
-                            <td className="px-4 py-3 text-sm text-gray-600">{idx + 1}</td>
-                            <td className="px-4 py-3 text-sm text-gray-800">{d.name}</td>
+                            <td className={`${isDtao ? "px-4 py-3 text-sm text-slate-300" : "px-4 py-3 text-sm text-gray-600"}`}>{idx + 1}</td>
+                            <td className={`${isDtao ? "px-4 py-3 text-sm text-slate-100" : "px-4 py-3 text-sm text-gray-800"}`}>{d.name}</td>
                             <td className="px-4 py-3 text-sm text-right">
                               <div className="inline-flex gap-2">
                                 <button
                                   onClick={() => handleEditOpen(d)}
-                                  className="px-3 py-1.5 bg-yellow-50 text-yellow-800 rounded-md hover:bg-yellow-100 text-sm"
+                                  className={`${isDtao ? "px-3 py-1.5 bg-yellow-900/10 text-yellow-300 rounded-md hover:bg-yellow-900/15" : "px-3 py-1.5 bg-yellow-50 text-yellow-800 rounded-md hover:bg-yellow-100"} text-sm`}
                                 >
                                   Edit
                                 </button>
                                 <button
                                   onClick={() => handleDelete(d)}
-                                  className="px-3 py-1.5 bg-rose-50 text-rose-700 rounded-md hover:bg-rose-100 text-sm"
+                                  className={`${isDtao ? "px-3 py-1.5 bg-rose-900/10 text-rose-300 rounded-md hover:bg-rose-900/15" : "px-3 py-1.5 bg-rose-50 text-rose-700 rounded-md hover:bg-rose-100"} text-sm`}
                                 >
                                   Delete
                                 </button>
@@ -240,19 +256,19 @@ const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
                     {departments.map((d, idx) => (
                       <div key={d.id ?? d._id ?? d.name ?? idx} className="p-4 flex items-center justify-between">
                         <div>
-                          <div className="text-sm font-medium text-gray-800">{d.name}</div>
-                          <div className="text-xs text-gray-500 mt-1">#{idx + 1}</div>
+                          <div className={`${isDtao ? "text-sm font-medium text-slate-100" : "text-sm font-medium text-gray-800"}`}>{d.name}</div>
+                          <div className={`${isDtao ? "text-xs text-slate-400 mt-1" : "text-xs text-gray-500 mt-1"}`}>#{idx + 1}</div>
                         </div>
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleEditOpen(d)}
-                            className="px-3 py-1.5 bg-yellow-50 text-yellow-800 rounded-md text-xs"
+                            className={`${isDtao ? "px-3 py-1.5 bg-yellow-900/10 text-yellow-300 rounded-md text-xs" : "px-3 py-1.5 bg-yellow-50 text-yellow-800 rounded-md text-xs"}`}
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDelete(d)}
-                            className="px-3 py-1.5 bg-rose-50 text-rose-700 rounded-md text-xs"
+                            className={`${isDtao ? "px-3 py-1.5 bg-rose-900/10 text-rose-300 rounded-md text-xs" : "px-3 py-1.5 bg-rose-50 text-rose-700 rounded-md text-xs"}`}
                           >
                             Delete
                           </button>
@@ -268,29 +284,36 @@ const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
 
         {/* Edit Modal */}
         {editing && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Edit Department</h3>
+          <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => {
+                if (!savingEdit) handleEditCancel();
+              }}
+            />
+            <div className={`${isDtao ? "bg-black/80 border border-violet-900 text-slate-100" : "bg-white"} rounded-lg shadow-lg w-full max-w-md p-6 z-10`}>
+              <h3 className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-lg font-semibold mb-4`}>Edit Department</h3>
               <form onSubmit={handleEditSave} className="space-y-4">
                 <input
+                  ref={modalInputRef}
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   disabled={savingEdit}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className={`${isDtao ? "w-full px-3 py-2 border border-violet-700 bg-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-violet-700" : "w-full px-3 py-2 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-200"}`}
                 />
                 <div className="flex justify-end gap-3">
                   <button
                     type="button"
                     onClick={handleEditCancel}
-                    className="px-4 py-2 rounded-md border border-gray-200 bg-white"
+                    className={`${isDtao ? "px-4 py-2 rounded-md border border-violet-700 bg-transparent text-slate-200" : "px-4 py-2 rounded-md border border-gray-200 bg-white"}`}
                     disabled={savingEdit}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded-md bg-blue-600 text-white"
+                    className={`${isDtao ? "px-4 py-2 rounded-md bg-emerald-600 text-white" : "px-4 py-2 rounded-md bg-blue-600 text-white"}`}
                     disabled={savingEdit}
                   >
                     {savingEdit ? "Saving…" : "Save"}
@@ -301,7 +324,6 @@ const ManageDepartmentsPage = ({ fetchDepartmentsProp }) => {
           </div>
         )}
       </div>
-      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 };
