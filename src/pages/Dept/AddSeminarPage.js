@@ -89,8 +89,8 @@ const BookedSlotsModal = ({ isOpen, onClose, seminars, hallKey, dateStr }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white rounded-lg shadow-lg border border-gray-200 p-5" onClick={(e)=>e.stopPropagation()}>
+      <div className="absolute inset-0 modal-overlay" onClick={onClose} />
+      <div className="relative w-full max-w-lg bg-white rounded-lg shadow-lg border border-gray-200 p-5 modal-content" onClick={(e)=>e.stopPropagation()}>
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-lg font-semibold text-slate-800">Booked Slots — {hallTitle}</h3>
@@ -512,7 +512,7 @@ export default function AddSeminarPage() {
       <div className="mt-3">
         <div className="flex gap-0.5">
           {slots.map((s,i) => (
-            <div key={i} title={`${String(i)} ${s ? "(booked)" : "(free)"}`} className={`h-2 flex-1 rounded-sm ${s ? "bg-rose-300" : "bg-emerald-200"}`} />
+            <div key={i} title={`${String(i)} ${s ? "(booked)" : "(free)"}`} className={`h-2 flex-1 rounded-sm ${s ? "bg-rose-300 booked-seg" : "bg-emerald-200 free-seg"}`} />
           ))}
         </div>
         <div className="mt-1 text-xs text-slate-500">Heatmap (15m segments)</div>
@@ -580,14 +580,126 @@ export default function AddSeminarPage() {
   return (
     <>
       <style>{`
-        .liquid-toggle { background: linear-gradient(90deg, rgba(99,102,241,0.08), rgba(99,102,241,0.04)); background-size: 200% 100%; transition: background-position .5s; }
-        .hall-tile { transition: transform .18s ease, box-shadow .18s ease; }
-        .hall-tile:hover { transform: translateY(-4px) scale(1.01); box-shadow: 0 10px 20px rgba(0,0,0,0.06); }
+        /* --------------------
+           Animated UI tweaks — only animations changed
+           - respects prefers-reduced-motion
+           - smooth liquid toggle shine
+           - hall-tile hover lift + sheen
+           - modal + notification subtle fade/slide
+           - heatmap micro pulse
+        -------------------- */
+
+        :root { --accent-1: 99 102 241; --accent-2: 79 70 229; --glass-alpha: 0.06; }
+
+        /* prefers-reduced-motion safety */
+        @media (prefers-reduced-motion: reduce) {
+          .liquid-toggle, .hall-tile, .modal-content, .modal-overlay, .notif-wrap, .booked-seg, .free-seg { transition: none !important; animation: none !important; transform: none !important; }
+        }
+
+        /* Liquid toggle — animated gradient slide */
+        .liquid-toggle {
+          background: linear-gradient(90deg, rgba(var(--accent-1), 0.10), rgba(var(--accent-2), 0.06));
+          background-size: 300% 100%;
+          transition: background-position 520ms cubic-bezier(.2,.9,.2,1), box-shadow 240ms;
+        }
+        .liquid-toggle button {
+          transition: transform 220ms cubic-bezier(.2,.9,.2,1), box-shadow 220ms, color 160ms;
+        }
+        .liquid-toggle button:active { transform: translateY(1px) scale(0.998); }
+
+        /* A subtle animated sheen when a tab becomes active */
+        .liquid-toggle .active-sheen {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.00));
+          mix-blend-mode: overlay;
+          opacity: 0;
+          transform: translateX(-12%);
+          transition: opacity 420ms, transform 420ms;
+        }
+        .liquid-toggle .active-sheen.show { opacity: 1; transform: translateX(0%); }
+
+        /* Hall tile lift + micro bounce + sheen */
+        .hall-tile {
+          transition: transform 220ms cubic-bezier(.16,.84,.24,1), box-shadow 220ms, border-color 220ms;
+          position: relative;
+          will-change: transform;
+          overflow: visible;
+        }
+        .hall-tile:hover { transform: translateY(-6px) scale(1.01); box-shadow: 0 18px 36px rgba(15,23,42,0.08); }
+        .hall-tile::after {
+          content: "";
+          position: absolute;
+          left: -30%;
+          top: -10%;
+          width: 160%;
+          height: 60%;
+          background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.00));
+          transform: rotate(-12deg) translateX(-8%);
+          opacity: 0;
+          transition: opacity 420ms, transform 420ms;
+          pointer-events: none;
+        }
+        .hall-tile:hover::after { opacity: 1; transform: rotate(-12deg) translateX(0%); }
+
+        /* subtle focus visible for keyboard users */
+        .hall-tile:focus-visible { outline: 3px solid rgba(var(--accent-1),0.14); outline-offset: 4px; }
+
+        /* Booked / free heatmap micro animation */
+        .booked-seg { transition: transform 280ms, opacity 280ms; }
+        .free-seg { transition: transform 280ms, opacity 280ms; }
+        .booked-seg { animation: bookedPulse 2.2s ease-in-out infinite; }
+        .free-seg { animation: freeDrift 3.8s ease-in-out infinite; opacity: 0.95; }
+
+        @keyframes bookedPulse {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(0.98); opacity: 0.85; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes freeDrift {
+          0% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-4px) scale(1.01); }
+          100% { transform: translateY(0) scale(1); }
+        }
+
+        /* Modal overlay + content animations */
+        .modal-overlay {
+          background: rgba(4,6,12,0.56);
+          opacity: 0;
+          animation: overlayFadeIn 260ms forwards;
+        }
+        .modal-content {
+          opacity: 0;
+          transform: translateY(8px) scale(0.995);
+          animation: contentPop 320ms cubic-bezier(.16,.8,.24,1) forwards;
+        }
+        @keyframes overlayFadeIn { to { opacity: 1; } }
+        @keyframes contentPop { to { opacity: 1; transform: translateY(0) scale(1); } }
+
+        /* Notification — slide from top with soft spring */
+        .notif-wrap { position: relative; transform-origin: top center; }
+        .notif-wrap .notif-inner {
+          transform: translateY(-6px) scale(0.995);
+          opacity: 0;
+          animation: notifIn 360ms cubic-bezier(.2,.9,.2,1) forwards;
+        }
+        @keyframes notifIn { to { transform: translateY(0) scale(1); opacity: 1; } }
+
+        /* Buttons micro interactions */
+        button {
+          transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+        }
+        button:active { transform: translateY(1px); }
+
+        /* small accessibility nicety for disabled buttons */
+        button[disabled] { opacity: 0.7; cursor: not-allowed; transform: none; }
+
       `}</style>
 
       {notification && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 pointer-events-none">
-          <div className="max-w-xl w-full pointer-events-auto bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4 pointer-events-none notif-wrap">
+          <div className="max-w-xl w-full pointer-events-auto bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden notif-inner">
             <div className="p-4">
               <div className="text-sm text-gray-800 whitespace-pre-wrap">{notification}</div>
               <div className="mt-3 text-right">
@@ -617,7 +729,8 @@ export default function AddSeminarPage() {
               </div>
             </div>
 
-            <div className={`mt-6 flex gap-3 liquid-toggle rounded-full p-1`}>
+            <div className={`mt-6 flex gap-3 liquid-toggle rounded-full p-1 relative`}>
+              <div className={`active-sheen ${bookingMode === "time" || bookingMode === "day" ? "show" : ""}`} />
               <button onClick={()=>{ setBookingMode("time"); setLastCheckOk(false); setLastCheckMessage(""); }} className={`flex-1 py-2 rounded-full ${bookingMode==="time" ? "bg-indigo-600 text-white" : "text-slate-600"}`}>Time Wise</button>
               <button onClick={()=>{ setBookingMode("day"); setLastCheckOk(false); setLastCheckMessage(""); }} className={`flex-1 py-2 rounded-full ${bookingMode==="day" ? "bg-indigo-600 text-white" : "text-slate-600"}`}>Day Wise</button>
             </div>
