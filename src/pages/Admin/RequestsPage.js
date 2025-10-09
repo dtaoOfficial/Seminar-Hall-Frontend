@@ -121,6 +121,9 @@ const RequestsPage = () => {
   const mainRef = useRef(null);
   const rejectTextareaRef = useRef(null);
 
+  // new: expanded rows set
+  const [expanded, setExpanded] = useState(() => new Set());
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -298,7 +301,7 @@ const RequestsPage = () => {
     };
   }, [fetchAll]);
 
-  // === action functions (kept same logic) ===
+  // === action functions (kept same logic as requested) ===
   const saveRemarks = async (normId) => {
     const remarks = (remarksMap[normId] ?? "").trim();
     if (!normId) return;
@@ -373,6 +376,8 @@ const RequestsPage = () => {
     }
   };
 
+  // end action functions (kept intact)
+
   const filteredItems = items.filter((r) => {
     const status = (r.status ?? "").toUpperCase();
     if (statusFilter !== "ALL" && status !== statusFilter) return false;
@@ -422,6 +427,47 @@ const RequestsPage = () => {
       } catch (e) {}
     }
   }, [rejectModal.open]);
+
+  // toggle expand for "More"
+  const toggleExpanded = (id) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // render per-day details similar to DeptHistory
+  const renderPerDayDetails = (s) => {
+    if (s.daySlots && typeof s.daySlots === "object") {
+      const keys = Object.keys(s.daySlots).sort();
+      if (keys.length === 0) return <div className="text-sm text-slate-400">No per-day details</div>;
+      return (
+        <ul className="space-y-1 text-sm">
+          {keys.map((k) => {
+            const val = s.daySlots[k];
+            if (!val) {
+              return <li key={k}><strong>{k}</strong>: <span className="text-xs text-slate-400">Full day</span></li>;
+            }
+            const st = val.startTime || val.start || "--";
+            const et = val.endTime || val.end || "--";
+            return <li key={k}><strong>{k}</strong>: {st} — {et}</li>;
+          })}
+        </ul>
+      );
+    }
+
+    if (s.startDate && s.endDate) {
+      return <div className="text-sm">Full-day range: <strong>{s.startDate}</strong> → <strong>{s.endDate}</strong></div>;
+    }
+
+    if (s.date) {
+      return <div className="text-sm">{(s.date || "").split("T")[0]}: {s.startTime || "--"} — {s.endTime || "--"}</div>;
+    }
+
+    return <div className="text-sm text-slate-400">No extra details</div>;
+  };
 
   return (
     <div ref={mainRef} className={`p-4 md:p-6 max-w-7xl mx-auto ${isDtao ? "text-slate-100" : "text-slate-900"}`}>
@@ -510,15 +556,21 @@ const RequestsPage = () => {
             const blink = blinkIds.has(String(id));
             const isNew = newIdsSet.has(String(id));
             const cardRing = blink ? (isDtao ? "ring-2 ring-yellow-700/30" : "ring-2 ring-yellow-200/30") : isNew ? (isDtao ? "ring-2 ring-blue-700/20" : "ring-2 ring-blue-200/20") : "";
+            const isExpanded = expanded.has(id);
 
             return (
-              <div key={id} className={`${isDtao ? "bg-black/40 border border-violet-900" : "glass-strong"} p-4 md:p-5 rounded-xl flex flex-col md:flex-row md:items-start gap-4 ${cardRing}`}>
+              <div
+                key={id}
+                className={`p-4 md:p-5 rounded-xl flex flex-col md:flex-row md:items-start gap-4 transition-shadow duration-200 transform hover:-translate-y-0.5 ${isDtao ? "bg-black/40 border border-violet-900" : "glass-strong bg-white/60"} ${cardRing}`}
+                aria-expanded={isExpanded}
+              >
                 {/* left: basic info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
                     <div className={`${isDtao ? "text-sm font-semibold text-slate-100" : "text-sm font-semibold text-slate-900"}`}>{r.hallName || "—"}</div>
                     <div className={`${isDtao ? "text-xs text-slate-300 px-2 py-1 rounded-md bg-white/3" : "text-xs text-slate-600 px-2 py-1 rounded-md bg-white/6"}`}>{r.department || "—"}</div>
                     {isNew && <div className="w-3 h-3 rounded-full bg-red-500 ml-2" title="New request" />}
+                    {blink && <div className="ml-1 animate-pulse text-xs font-medium text-yellow-600">New</div>}
                   </div>
 
                   <div className={`${isDtao ? "mt-2 text-sm text-slate-200" : "mt-2 text-sm text-slate-800"}`}>{formattedDate}</div>
@@ -527,6 +579,8 @@ const RequestsPage = () => {
                   <div className="mt-3 text-sm">
                     <div className={`${isDtao ? "text-slate-100 font-medium" : "text-slate-900 font-medium"}`}>{r.bookingName || "—"}</div>
                     {r.bookingEmail && <div className={`${isDtao ? "text-xs text-slate-300 mt-1" : "text-xs text-slate-600 mt-1"}`}>{r.bookingEmail}</div>}
+                    {r.bookingPhone && <div className={`${isDtao ? "text-xs text-slate-300 mt-1" : "text-xs text-slate-600 mt-1"}`}>{r.bookingPhone}</div>}
+                    {r.slotTitle && <div className="text-xs mt-1 text-slate-500">Title: {r.slotTitle}</div>}
                   </div>
                 </div>
 
@@ -603,6 +657,7 @@ const RequestsPage = () => {
                       Save
                     </button>
 
+                    {/* Cancel request quick info */}
                     {isCancelRequested && (
                       <div className={`${isDtao ? "p-3 rounded-md bg-yellow-900/10 text-yellow-300" : "p-3 rounded-md bg-yellow-50 text-yellow-800"}`}>
                         <div><strong>Cancel reason:</strong> {r.cancellationReason || "—"}</div>
@@ -610,11 +665,64 @@ const RequestsPage = () => {
                       </div>
                     )}
 
+                    {/* existing admin remarks saved on server */}
                     {r.remarks && (
                       <div className={`${isDtao ? "p-3 rounded-md bg-white/5 text-slate-200" : "p-3 rounded-md bg-white/30 text-slate-900"}`}>
                         <strong>Admin remarks:</strong> <span className="ml-1">{r.remarks}</span>
                       </div>
                     )}
+
+                    {/* More toggle */}
+                    <div className="ml-auto md:ml-0">
+                      <button
+                        onClick={() => toggleExpanded(id)}
+                        aria-expanded={isExpanded}
+                        className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      >
+                        {isExpanded ? "Less" : "More"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded area: smooth reveal */}
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ${isExpanded ? "max-h-96 opacity-100 mt-3" : "max-h-0 opacity-0"}`}
+                    aria-hidden={!isExpanded}
+                  >
+                    <div className={`${isDtao ? "bg-black/30 border border-violet-900 p-3 rounded-md" : "bg-gray-50 border border-gray-100 p-3 rounded-md"}`}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <strong>Slot:</strong> {r.slot || "—"}
+                        </div>
+                        <div>
+                          <strong>Applied at:</strong> {r.appliedAt ? new Date(r.appliedAt).toLocaleString() : "—"}
+                        </div>
+                        <div>
+                          <strong>Venue Dept:</strong> {r.department || "—"}
+                        </div>
+                        <div>
+                          <strong>Booking email:</strong> {r.bookingEmail || "—"}
+                        </div>
+                        <div>
+                          <strong>Phone:</strong> {r.bookingPhone || "—"}
+                        </div>
+                        <div>
+                          <strong>Slot title:</strong> {r.slotTitle || "—"}
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <strong>Per-day details:</strong>
+                        <div className="mt-2">{renderPerDayDetails(r)}</div>
+                      </div>
+
+                      {r.additionalInfo && (
+                        <div className="mt-3 text-sm">
+                          <strong>Additional Info:</strong>
+                          <div className="mt-1 text-slate-500">{r.additionalInfo}</div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

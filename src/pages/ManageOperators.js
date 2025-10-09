@@ -29,6 +29,9 @@ export default function ManageOperatorsPage() {
   const perPageOptions = [5, 10, 20];
   const [perPage, setPerPage] = useState(10);
 
+  // selected operator to show details & edit below table
+  const [selectedOperator, setSelectedOperator] = useState(null);
+
   const mainRef = useRef(null);
   const formTopRef = useRef(null);
 
@@ -190,6 +193,7 @@ export default function ManageOperatorsPage() {
         notify("Operator created", "success", 2200);
       }
       resetForm();
+      setSelectedOperator(null);
       await fetchOperators();
     } catch (err) {
       console.error("save operator", err);
@@ -203,7 +207,8 @@ export default function ManageOperatorsPage() {
   }
 
   function handleEdit(op) {
-    setEditingId(op.id ?? op._id);
+    const id = op.id ?? op._id;
+    setEditingId(id);
     setForm({
       hallName: op.hallName || "",
       headName: op.headName || "",
@@ -218,10 +223,15 @@ export default function ManageOperatorsPage() {
   }
 
   async function handleDelete(id) {
+    if (!id) return;
     if (!window.confirm("Delete this operator?")) return;
     try {
       await api.delete(`/hall-operators/${id}`);
       notify("Deleted", "success", 1800);
+      // If deleted operator is selected, clear selection
+      if (selectedOperator && (selectedOperator.id === id || selectedOperator._id === id)) {
+        setSelectedOperator(null);
+      }
       await fetchOperators();
     } catch (err) {
       console.error("delete operator", err);
@@ -287,6 +297,11 @@ export default function ManageOperatorsPage() {
   useEffect(() => {
     setPage(1);
   }, [query, hallFilter, perPage]);
+
+  // UI helper: click row to show details (or Clear selection)
+  const handleSelectOperator = (op) => {
+    setSelectedOperator(op);
+  };
 
   return (
     <div ref={mainRef} className={`${isDtao ? "min-h-screen bg-[#08050b] text-slate-100" : "min-h-screen bg-gray-50 text-slate-900"} p-4 sm:p-8`}>
@@ -456,33 +471,61 @@ export default function ManageOperatorsPage() {
                     </td>
                   </tr>
                 ) : (
-                  paged.map((op) => (
-                    <tr key={op.id ?? op._id}>
-                      <td className="px-4 py-3 text-sm">{op.hallName}</td>
-                      <td className="px-4 py-3 text-sm">{op.headName}</td>
-                      <td className="px-4 py-3 text-sm flex items-center gap-3">
-                        <span>{op.headEmail}</span>
-                        <button
-                          onClick={() => copyToClipboard(op.headEmail || "")}
-                          className="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
-                          aria-label="Copy email"
-                        >
-                          Copy
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-sm">{op.phone || "—"}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex gap-2">
-                          <button onClick={() => handleEdit(op)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
-                            Edit
+                  paged.map((op) => {
+                    const id = op.id ?? op._id;
+                    return (
+                      <tr key={id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleSelectOperator(op)}>
+                        <td className="px-4 py-3 text-sm">{op.hallName}</td>
+                        <td className="px-4 py-3 text-sm">{op.headName}</td>
+                        <td className="px-4 py-3 text-sm flex items-center gap-3">
+                          <span>{op.headEmail}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyToClipboard(op.headEmail || "");
+                            }}
+                            className="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200"
+                            aria-label="Copy email"
+                          >
+                            Copy
                           </button>
-                          <button onClick={() => handleDelete(op.id ?? op._id)} className="px-3 py-1 bg-red-600 text-white rounded text-sm">
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-4 py-3 text-sm">{op.phone || "—"}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(op);
+                              }}
+                              className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(id);
+                              }}
+                              className="px-3 py-1 bg-red-600 text-white rounded text-sm"
+                            >
+                              Delete
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // select to show details
+                                setSelectedOperator(op);
+                              }}
+                              className="px-3 py-1 bg-gray-100 text-gray-800 rounded text-sm"
+                            >
+                              Details
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -495,34 +538,95 @@ export default function ManageOperatorsPage() {
             ) : paged.length === 0 ? (
               <div className="p-4 text-center text-gray-500">No operators found.</div>
             ) : (
-              paged.map((op) => (
-                <div key={op.id ?? op._id} className="p-4 border-b last:border-b-0">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-sm font-medium">{op.hallName}</div>
-                      <div className="text-sm text-gray-600">{op.headName}</div>
-                      <div className="text-sm text-gray-600">{op.phone || "—"}</div>
-                      <div className="text-sm text-gray-600 flex items-center gap-2">
-                        <span>{op.headEmail}</span>
-                        <button onClick={() => copyToClipboard(op.headEmail || "")} className="text-xs px-2 py-1 bg-gray-100 rounded">
-                          Copy
+              paged.map((op) => {
+                const id = op.id ?? op._id;
+                return (
+                  <div key={id} className="p-4 border-b last:border-b-0">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-sm font-medium">{op.hallName}</div>
+                        <div className="text-sm text-gray-600">{op.headName}</div>
+                        <div className="text-sm text-gray-600">{op.phone || "—"}</div>
+                        <div className="text-sm text-gray-600 flex items-center gap-2">
+                          <span>{op.headEmail}</span>
+                          <button onClick={() => copyToClipboard(op.headEmail || "")} className="text-xs px-2 py-1 bg-gray-100 rounded">
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <button onClick={() => handleEdit(op)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
+                          Edit
+                        </button>
+                        <button onClick={() => handleDelete(id)} className="px-3 py-1 bg-red-600 text-white rounded text-sm">
+                          Delete
+                        </button>
+                        <button onClick={() => setSelectedOperator(op)} className="px-3 py-1 bg-gray-100 text-gray-800 rounded text-sm">
+                          Details
                         </button>
                       </div>
                     </div>
-
-                    <div className="flex flex-col gap-2">
-                      <button onClick={() => handleEdit(op)} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
-                        Edit
-                      </button>
-                      <button onClick={() => handleDelete(op.id ?? op._id)} className="px-3 py-1 bg-red-600 text-white rounded text-sm">
-                        Delete
-                      </button>
-                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
+        </div>
+
+        {/* Selected Operator Details panel (shows below table) */}
+        <div className="mt-4">
+          {selectedOperator ? (
+            <div className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white border"} rounded-lg p-4 shadow`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold">{selectedOperator.hallName}</h3>
+                  <div className="text-sm text-slate-400 mt-1">{selectedOperator.headName}</div>
+                </div>
+
+                <div className="text-sm text-slate-400">
+                  <div><strong>Email:</strong> {selectedOperator.headEmail}</div>
+                  <div><strong>Phone:</strong> {selectedOperator.phone || "—"}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <button
+                  onClick={() => handleEdit(selectedOperator)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => {
+                    const id = selectedOperator.id ?? selectedOperator._id;
+                    handleDelete(id);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => {
+                    copyToClipboard(selectedOperator.headEmail || "");
+                  }}
+                  className="px-3 py-2 bg-gray-100 rounded-md"
+                >
+                  Copy Email
+                </button>
+
+                <button
+                  onClick={() => setSelectedOperator(null)}
+                  className={`${isDtao ? "ml-auto px-3 py-2 bg-transparent border border-violet-700 rounded-md text-slate-200" : "ml-auto px-3 py-2 bg-gray-100 rounded-md"}`}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          ) : (
+            // show a helpful hint when no operator selected
+            <div className={`${isDtao ? "text-slate-400" : "text-gray-600"} text-sm`}>Click "Details" on any row to view full operator details and edit/delete actions.</div>
+          )}
         </div>
 
         {/* pagination */}
