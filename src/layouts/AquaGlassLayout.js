@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import GlobalStyles from "../styles/GlobalStyles";
 import { useTheme } from "../contexts/ThemeContext";
+import useScrollReveal from "../hooks/useScrollReveal"; // ← added
 
 export default function AquaGlassLayout({ children, user, setUser }) {
   const { theme } = useTheme() || {};
@@ -20,6 +21,9 @@ export default function AquaGlassLayout({ children, user, setUser }) {
     window.addEventListener("resize", checkSize);
     return () => window.removeEventListener("resize", checkSize);
   }, []);
+
+  // enable reveal animations site-wide (called once in layout)
+  useScrollReveal();
 
   const handleLogout = () => {
     setUser?.(null);

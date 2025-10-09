@@ -81,13 +81,30 @@ function NotificationCard({ n, onClose }) {
   };
   const style = colors[type] || colors.default;
 
-  // Card animations
+  // smoother, spring-based entrance & exit (UI-only change)
   const cardVariants = {
-    initial: n.fullscreen ? { y: -40, opacity: 0, scale: 0.98 } : { y: -10, opacity: 0, scale: 0.98 },
-    animate: n.fullscreen
-      ? { y: 0, opacity: 1, scale: 1, transition: { duration: 0.55, ease: [0.2, 0.9, 0.2, 1] } }
-      : { y: 0, opacity: 1, scale: 1, transition: { duration: 0.45, ease: [0.2, 0.9, 0.2, 1] } },
-    exit: n.fullscreen ? { y: 24, opacity: 0, scale: 0.98, transition: { duration: 0.42 } } : { y: -10, opacity: 0, scale: 0.98, transition: { duration: 0.3 } },
+    initial: { y: n.fullscreen ? -40 : -14, opacity: 0, scale: 0.96 },
+    animate: {
+      y: 0,
+      opacity: 1,
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 420,
+        damping: 30,
+        mass: 0.5,
+        bounce: 0.25,
+      },
+    },
+    exit: {
+      y: n.fullscreen ? 28 : -12,
+      opacity: 0,
+      scale: 0.96,
+      transition: {
+        duration: 0.35,
+        ease: [0.25, 0.8, 0.3, 1],
+      },
+    },
   };
 
   const cardStyle = {
@@ -114,6 +131,7 @@ function NotificationCard({ n, onClose }) {
       animate="animate"
       exit="exit"
       style={cardStyle}
+      className="toast-glow" // subtle CSS glow class (add CSS below)
       role="status"
       aria-live={type === "error" ? "assertive" : "polite"}
     >
@@ -143,6 +161,9 @@ function NotificationCard({ n, onClose }) {
     </motion.div>
   );
 }
+
+// quick adaptive timing for mobile vs desktop (UI-only helper)
+const isMobileDevice = typeof window !== "undefined" && window.innerWidth < 768;
 
 export function NotificationsProvider({ children }) {
   const [queue, setQueue] = useState([]); // queued notifications
@@ -229,7 +250,7 @@ export function NotificationsProvider({ children }) {
     setQueue((q) => q.filter((x) => x.id !== id));
   };
 
-const value = { notify, close };
+  const value = { notify, close };
 
   // Render portal UI
   const portalContent = (
@@ -241,7 +262,7 @@ const value = { notify, close };
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.24 }}
+            transition={{ duration: isMobileDevice ? 0.18 : 0.26 }} // adaptive for mobile vs desktop
             style={{
               position: "fixed",
               inset: 0,
@@ -253,13 +274,13 @@ const value = { notify, close };
               zIndex: 2147483646,
             }}
           >
-            {/* background blur for fullscreen */}
+            {/* background blur for fullscreen (softer timing) */}
             {current.fullscreen ? (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.35 }}
+                transition={{ duration: 0.45, ease: [0.25, 0.8, 0.3, 1] }} // softened fade
                 style={{
                   position: "absolute",
                   inset: 0,

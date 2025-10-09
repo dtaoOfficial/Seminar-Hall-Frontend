@@ -1,6 +1,8 @@
+// src/components/Navbar.js
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
+import AnimatedButton from "../components/AnimatedButton"; // ← added
 
 /* Links arrays (unchanged) */
 const LINKS_ADMIN = [
@@ -184,7 +186,8 @@ export default function Navbar({ user = {}, handleLogout }) {
   return (
     <>
       <header className="w-full fixed top-0 left-0 z-50 h-16">
-        <div className="w-full h-full backdrop-blur-lg bg-white/40 border-b border-white/30 shadow-sm dark:bg-black/30">
+        {/* stronger glass on header: increased blur + slightly more opaque bg for light mode */}
+        <div className="w-full h-full backdrop-blur-xl bg-white/55 border-b border-white/20 shadow-sm dark:bg-black/30 dark:border-white/6">
           <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-6 h-full">
             {/* Left: brand + mobile control */}
             <div className="flex items-center gap-3">
@@ -236,7 +239,7 @@ export default function Navbar({ user = {}, handleLogout }) {
                         </NavLink>
 
                         {isRequests && newReqCount > 0 && (
-                          <span className="absolute -top-1 -right-2 w-3 h-3 rounded-full bg-red-500 ring-2 ring-white" aria-hidden />
+                          <span className="nav-red-dot" aria-hidden />
                         )}
                       </div>
                     );
@@ -327,22 +330,22 @@ export default function Navbar({ user = {}, handleLogout }) {
                         <div className="text-xs text-slate-500 dark:text-slate-400">{user?.email || ""}</div>
                       </div>
                       <div className="border-t border-slate-100" />
-                      <button
+                      <AnimatedButton
                         onClick={() => {
                           setUserOpen(false);
                           onLogout();
                         }}
-                        className="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-black/20"
+                        className="w-full text-left px-4 py-2 text-sm"
                       >
                         Logout
-                      </button>
+                      </AnimatedButton>
                     </div>
                   )}
                 </div>
               ) : (
-                <button onClick={onLogout} className="px-3 py-1.5 text-sm rounded-md bg-gradient-to-r from-blue-600 to-cyan-400 text-white font-semibold">
+                <AnimatedButton onClick={onLogout} className="px-3 py-1.5 text-sm rounded-md">
                   Logout
-                </button>
+                </AnimatedButton>
               )}
 
               {/* Desktop Theme toggle (hidden on mobile) */}
@@ -361,10 +364,11 @@ export default function Navbar({ user = {}, handleLogout }) {
         className={`fixed inset-0 z-40 transition-opacity duration-300 ${drawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={() => setDrawerOpen(false)}
       >
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+        {/* stronger backdrop blur for better contrast */}
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-md" />
 
         <div
-          className={`absolute right-0 w-11/12 sm:w-3/4 bg-white shadow-2xl p-4 transform transition-transform duration-300 dark:bg-black/90`}
+          className={`absolute right-0 w-11/12 sm:w-3/4 bg-white/95 shadow-2xl p-4 transform transition-transform duration-300 dark:bg-black/90 backdrop-blur-md border-l border-white/10`}
           style={{ top: "64px", height: "calc(100vh - 64px)", zIndex: 45 }}
           onClick={(e) => e.stopPropagation()}
           role="dialog"
@@ -387,7 +391,15 @@ export default function Navbar({ user = {}, handleLogout }) {
               <div className="mr-2">
                 <ThemeToggle />
               </div>
-              <button className="text-2xl" onClick={() => setDrawerOpen(false)} aria-label="Close menu">✕</button>
+
+              {/* FIX: explicit light/dark color + hover so X is always visible */}
+              <button
+                className="text-2xl text-slate-700 dark:text-slate-200 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-white/6 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                onClick={() => setDrawerOpen(false)}
+                aria-label="Close menu"
+              >
+                ✕
+              </button>
             </div>
           </div>
 
@@ -414,9 +426,9 @@ export default function Navbar({ user = {}, handleLogout }) {
           </nav>
 
           <div className="mt-4">
-            <button onClick={() => { setDrawerOpen(false); onLogout(); }} className="w-full py-2 rounded-md bg-gradient-to-r from-blue-600 to-cyan-400 text-white font-semibold text-sm">
+            <AnimatedButton onClick={() => { setDrawerOpen(false); onLogout(); }} className="w-full py-2 rounded-md text-sm">
               Logout
-            </button>
+            </AnimatedButton>
           </div>
         </div>
       </div>

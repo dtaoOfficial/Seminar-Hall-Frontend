@@ -1,9 +1,12 @@
 // src/pages/Admin/AddSeminarPage.js
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import api from "../../utils/api";
 import { useTheme } from "../../contexts/ThemeContext";
+import AnimatedButton from "../../components/AnimatedButton";
+import { useNotification } from "../../components/NotificationsProvider"; // optional — will work if provider present
 
-/* ---------- Helpers ---------- */
+/* ---------- Helpers (unchanged) ---------- */
 const ymd = (d) => {
   if (!d) return "";
   const dt = d instanceof Date ? d : new Date(d);
@@ -51,7 +54,7 @@ const listDatesBetween = (sd, ed) => {
   return out;
 };
 
-/* ---------- Small icons ---------- */
+/* ---------- Small icons (unchanged) ---------- */
 const CalendarIcon = (props) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...props}>
     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -74,17 +77,13 @@ const UsersIcon = (props) => (
   </svg>
 );
 
-/* ---------- Custom TimeSelect (replaces native select) ---------- */
-/*
-  - small accessible-ish custom dropdown
-  - shows only 5 visible options (scrollable)
-  - adapts to `isDtao` theme
-*/
+/* ---------- Custom TimeSelect (animated & accessible) ---------- */
 function TimeSelect({ value, onChange, options = TIME_OPTIONS, className = "", ariaLabel = "Select time" }) {
   const ref = useRef(null);
   const [open, setOpen] = useState(false);
   const { theme } = useTheme() || {};
   const isDtao = theme === "dtao";
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     function onDoc(e) {
@@ -97,7 +96,6 @@ function TimeSelect({ value, onChange, options = TIME_OPTIONS, className = "", a
 
   useEffect(() => {
     if (open) {
-      // scroll selected into view
       const el = ref.current?.querySelector(`[data-val="${value}"]`);
       if (el?.scrollIntoView) el.scrollIntoView({ block: "nearest" });
     }
@@ -118,9 +116,13 @@ function TimeSelect({ value, onChange, options = TIME_OPTIONS, className = "", a
       </button>
 
       {open && (
-        <div
+        <motion.div
           role="listbox"
           tabIndex={-1}
+          initial={reduce ? {} : { opacity: 0, y: -6, scale: 0.98 }}
+          animate={reduce ? {} : { opacity: 1, y: 0, scale: 1 }}
+          exit={reduce ? {} : { opacity: 0, y: -6 }}
+          transition={{ duration: 0.18 }}
           className={`absolute z-50 mt-1 w-full rounded-md shadow-lg ${isDtao ? "bg-black/80 border border-violet-800 text-slate-100" : "bg-white border"}`}
           style={{ maxHeight: `${5 * 40}px`, overflowY: "auto" }} // ~5 rows of 40px
         >
@@ -138,18 +140,19 @@ function TimeSelect({ value, onChange, options = TIME_OPTIONS, className = "", a
               {to12Label(opt)}
             </div>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );
 }
 
-/* ---------- Component ---------- */
+/* ---------- Component (UI & animations only) ---------- */
 export default function SingleBookingPage() {
   const { theme } = useTheme() || {};
   const isDtao = theme === "dtao";
+  const reduce = useReducedMotion();
 
-  // booking mode + form
+  // booking mode + form (logic identical to yours)
   const [bookingMode, setBookingMode] = useState("time"); // time | day
   const [slotTitle, setSlotTitle] = useState("");
   const [bookingName, setBookingName] = useState("");
@@ -182,13 +185,25 @@ export default function SingleBookingPage() {
   const [lastCheckMessage, setLastCheckMessage] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const showNotification = (msg, ms=3500) => {
+  // IMPORTANT: call hook unconditionally at top-level so eslint rules-of-hooks is satisfied
+  // If NotificationsProvider isn't mounted, it's expected that the hook will return null/undefined per your provider implementation.
+  const globalNotify = useNotification();
+
+  const showNotification = useCallback((msg, ms = 3500) => {
+    // local floating notification (keeps existing behavior)
     setNotification(msg);
     if (notifRef.current) clearTimeout(notifRef.current);
-    if (ms>0) notifRef.current = setTimeout(()=>setNotification(""), ms);
-  };
+    if (ms > 0) notifRef.current = setTimeout(() => setNotification(""), ms);
 
-  /* ---------- fetch ---------- */
+    // also call global provider if available
+    try {
+      if (globalNotify && typeof globalNotify.notify === "function") {
+        globalNotify.notify(msg, ms > 0 ? "info" : "info", { autoDismiss: ms });
+      }
+    } catch {}
+  }, [globalNotify]);
+
+  /* ---------- fetch (unchanged) ---------- */
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -211,7 +226,7 @@ export default function SingleBookingPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedHall]);
+  }, [selectedHall, showNotification]);
 
   useEffect(()=>{ fetchAll(); return ()=>{ if (notifRef.current) clearTimeout(notifRef.current); } }, [fetchAll]);
 
@@ -221,7 +236,7 @@ export default function SingleBookingPage() {
     setSelectedHallObj(obj || null);
   }, [selectedHall, halls]);
 
-  /* ---------- normalize seminars -> bookings map (minute-precision) ---------- */
+  /* ---------- normalize seminars -> bookings map (unchanged) ---------- */
   const normalizedBookings = useMemo(() => {
     const map = new Map();
     const toDateKey = (value) => {
@@ -237,7 +252,6 @@ export default function SingleBookingPage() {
         const hallName = s.hallName || s.hall?.name || "";
         const hallId = s.hallId || s.hall?._id || s.hall?.id || "";
 
-        // treat as day booking if both startDate & endDate present OR type === 'day'
         if ((s.startDate && s.endDate) || s.type === "day") {
           const sdKey = toDateKey(s.startDate || s.date || s.dateFrom);
           const edKey = toDateKey(s.endDate || s.date || s.dateTo);
@@ -252,7 +266,6 @@ export default function SingleBookingPage() {
           return;
         }
 
-        // time booking (requires date + startTime + endTime)
         const dateKey = toDateKey(s.date || s.startDate || s.dateFrom);
         if (!dateKey) return;
         if (!s.startTime || !s.endTime) return;
@@ -274,7 +287,7 @@ export default function SingleBookingPage() {
     return arr.some(b => (b.type === "day" || (b.startMin === 0 && b.endMin === 1440)) && (b.hallName === hall || String(b.hallId) === String(hall)));
   };
 
-  /* ---------- check availability ---------- */
+  /* ---------- check availability (unchanged) ---------- */
   const checkTimeWiseAvailability = () => {
     if (!selectedHall) return { ok:false, msg:"Please select a hall from the right." };
     if (!date) return { ok:false, msg:"Pick a date first." };
@@ -299,7 +312,6 @@ export default function SingleBookingPage() {
       return { ok:true, msg:`Available on ${ds}: ${to12Label(startTime)} — ${to12Label(endTime)}` };
     }
 
-    // build friendly message + suggestion (slide forward by 15-min)
     const conflictMsgs = overlapping.map(b => `${b.date} (${minutesToHHMM(b.startMin)} — ${minutesToHHMM(b.endMin)})`);
     const needed = eMin - sMin;
     const dayStart = hhmmToMinutes(TIME_OPTIONS[0]);
@@ -352,7 +364,6 @@ export default function SingleBookingPage() {
       });
       if (overlap) {
         conflicts.push(`${key} (${ds.startTime} — ${ds.endTime})`);
-        // find suggestion for that date
         const needed = eMin - sMin;
         const dayStart = hhmmToMinutes(TIME_OPTIONS[0]);
         const dayEnd = hhmmToMinutes(TIME_OPTIONS[TIME_OPTIONS.length-1]) + 15;
@@ -394,7 +405,7 @@ export default function SingleBookingPage() {
     }
   };
 
-  /* ---------- submit ---------- */
+  /* ---------- submit (unchanged logic) ---------- */
   const resetForm = () => {
     setSlotTitle("");
     setBookingName("");
@@ -412,11 +423,9 @@ export default function SingleBookingPage() {
 
   const handleSubmit = async (ev) => {
     ev && ev.preventDefault();
-    // require a fresh successful check before submit
     const res = bookingMode === "day" ? checkDayWiseAvailability() : checkTimeWiseAvailability();
     if (!res.ok) { setLastCheckOk(false); setLastCheckMessage(res.msg); showNotification(res.msg, 6000); return; }
 
-    // basic validation
     if (!slotTitle || !slotTitle.trim()) { showNotification("Event name required"); return; }
     if (!bookingName || !bookingName.trim()) { showNotification("Faculty name required"); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showNotification("Invalid email"); return; }
@@ -467,7 +476,6 @@ export default function SingleBookingPage() {
         await Promise.all(posts.map(p => api.post("/seminars", p)));
       }
 
-      // refresh seminars
       const r = await api.get("/seminars");
       setSeminars(Array.isArray(r.data) ? r.data : []);
       setShowSuccess(true);
@@ -481,7 +489,7 @@ export default function SingleBookingPage() {
     }
   };
 
-  /* ---------- when startDate/endDate change prefill daySlots ---------- */
+  /* ---------- when startDate/endDate change prefill daySlots (unchanged) ---------- */
   useEffect(()=> {
     if (!startDate || !endDate) return;
     const sd = new Date(startDate); sd.setHours(0,0,0,0);
@@ -501,7 +509,7 @@ export default function SingleBookingPage() {
     });
   }, [startDate, endDate]);
 
-  /* ---------- heatmap ---------- */
+  /* ---------- heatmap (unchanged) ---------- */
   const renderHeatmap = (hallKey, dateObj) => {
     const key = ymd(dateObj || new Date());
     const arr = normalizedBookings.get(key) || [];
@@ -529,31 +537,41 @@ export default function SingleBookingPage() {
     );
   };
 
-  /* ---------- Render ---------- */
+  /* ---------- Render (UI/upgrades only) ---------- */
   return (
     <div className={`${isDtao ? "min-h-screen p-6 bg-[#08050b] text-slate-100" : "min-h-screen bg-slate-50 p-6"}`}>
-      {/* Notification */}
+      {/* floating local notification (kept for compatibility) */}
       {notification && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+        <motion.div
+          initial={reduce ? {} : { opacity: 0, y: -8 }}
+          animate={reduce ? {} : { opacity: 1, y: 0 }}
+          exit={reduce ? {} : { opacity: 0, y: -8 }}
+          transition={{ duration: 0.22 }}
+          className="fixed top-6 left-1/2 -translate-x-1/2 z-50"
+          role="status"
+          aria-live="polite"
+        >
           <div className={`rounded-xl px-4 py-2 shadow-lg ${isDtao ? "bg-black/60 border border-violet-800 text-slate-100" : "bg-white border text-slate-900"}`}>
             <div className="text-sm">{notification}</div>
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* Success overlay */}
-      {showSuccess && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-          <div className={`${isDtao ? "rounded-2xl bg-black/80 border border-violet-800 p-6 shadow-xl text-slate-100" : "rounded-2xl bg-white p-6 shadow-xl"}`}>
-            <div className="text-lg font-semibold">Booked!</div>
-            <div className={`${isDtao ? "text-slate-300" : "text-slate-600"} text-sm`}>Your booking was saved.</div>
-          </div>
-        </div>
-      )}
+      {/* Success overlay (animated, backdrop blur) */}
+      <AnimateSuccessOverlay show={showSuccess} isDtao={isDtao} reduce={reduce} />
 
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* FORM (left) - note: removed hall dropdown here per request */}
-        <section className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white"} rounded-2xl p-6 shadow`}>
+      <motion.div
+        className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8"
+        initial={reduce ? {} : { opacity: 0, y: 6 }}
+        animate={reduce ? {} : { opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        {/* FORM (left) */}
+        <motion.section data-reveal className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white"} rounded-2xl p-6 shadow`}
+          initial={reduce ? {} : { opacity: 0, y: 8 }}
+          animate={reduce ? {} : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.05 }}
+        >
           <div className="flex items-start justify-between">
             <div>
               <h1 className={`${isDtao ? "text-slate-100" : "text-slate-800"} text-2xl font-semibold`}>Book a Seminar Hall (Admin)</h1>
@@ -562,18 +580,23 @@ export default function SingleBookingPage() {
           </div>
 
           <div className={`mt-4 flex gap-3 rounded-full p-1 ${isDtao ? "bg-black/30" : "bg-indigo-50"}`}>
-            <button
+            <AnimatedButton
+              variant={bookingMode==="time" ? "primary" : "ghost"}
+              size="sm"
               onClick={()=>{ setBookingMode("time"); setLastCheckOk(false); setLastCheckMessage(""); }}
-              className={`flex-1 py-2 rounded-full ${bookingMode==="time" ? (isDtao ? "bg-violet-600 text-white" : "bg-indigo-600 text-white") : (isDtao ? "text-slate-300" : "text-slate-600")}`}
+              className={`flex-1 ${bookingMode==="time" ? "" : "opacity-90"}`}
             >
               Time Wise
-            </button>
-            <button
+            </AnimatedButton>
+
+            <AnimatedButton
+              variant={bookingMode==="day" ? "primary" : "ghost"}
+              size="sm"
               onClick={()=>{ setBookingMode("day"); setLastCheckOk(false); setLastCheckMessage(""); }}
-              className={`flex-1 py-2 rounded-full ${bookingMode==="day" ? (isDtao ? "bg-violet-600 text-white" : "bg-indigo-600 text-white") : (isDtao ? "text-slate-300" : "text-slate-600")}`}
+              className={`flex-1 ${bookingMode==="day" ? "" : "opacity-90"}`}
             >
               Day Wise
-            </button>
+            </AnimatedButton>
           </div>
 
           <form onSubmit={(e)=>e.preventDefault()} className="mt-6 space-y-4">
@@ -700,7 +723,6 @@ export default function SingleBookingPage() {
                 <input
                   value={phone}
                   onChange={(e)=> {
-                    // only digits, max 10
                     const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
                     setPhone(digits);
                   }}
@@ -720,25 +742,31 @@ export default function SingleBookingPage() {
             </div>
 
             <div className="flex gap-3 mt-4">
-              <button type="button" onClick={doCheckAvailability} className={`${isDtao ? "px-6 py-3 rounded-lg bg-violet-600 text-white font-semibold" : "px-6 py-3 rounded-lg bg-indigo-600 text-white font-semibold"}`}>Check Availability</button>
+              <AnimatedButton type="button" onClick={doCheckAvailability} variant="primary">
+                Check Availability
+              </AnimatedButton>
 
-              <button
+              <AnimatedButton
                 type="button"
                 onClick={handleSubmit}
-                disabled={!lastCheckOk}
-                className={`px-6 py-3 rounded-lg font-semibold ${lastCheckOk ? (isDtao ? "bg-emerald-600 text-white" : "bg-emerald-600 text-white") : "bg-gray-200 text-slate-500 cursor-not-allowed"}`}
+                variant={lastCheckOk ? "primary" : "ghost"}
+                className={!lastCheckOk ? "opacity-60 pointer-events-none" : ""}
               >
                 Confirm & Book Now
-              </button>
+              </AnimatedButton>
             </div>
 
             {/* last check message */}
             {lastCheckMessage && <div className={`mt-2 text-sm ${lastCheckOk ? (isDtao ? "text-emerald-300" : "text-emerald-700") : "text-rose-600"}`}>{lastCheckMessage}</div>}
           </form>
-        </section>
+        </motion.section>
 
         {/* RIGHT: Halls + summary */}
-        <aside className="space-y-6">
+        <motion.aside className="space-y-6" data-reveal
+          initial={reduce ? {} : { opacity: 0, y: 8 }}
+          animate={reduce ? {} : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.08 }}
+        >
           <div className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white"} rounded-lg p-4 shadow-sm`}>
             <div className="flex items-center justify-between mb-3">
               <h3 className={`${isDtao ? "text-slate-100" : "text-slate-800"} text-lg font-semibold`}>Select a Hall</h3>
@@ -803,11 +831,50 @@ export default function SingleBookingPage() {
             </div>
 
             <div className="mt-4">
-              <button onClick={()=>{ resetForm(); }} className={`${isDtao ? "w-full py-2 rounded bg-transparent border border-violet-700 text-slate-200" : "w-full py-2 rounded bg-gray-100"}`}>Clear</button>
+              <AnimatedButton onClick={()=>{ resetForm(); }} variant="ghost" className={`${isDtao ? "w-full py-2 rounded bg-transparent border border-violet-700 text-slate-200" : "w-full py-2 rounded bg-gray-100"}`}>Clear</AnimatedButton>
             </div>
           </div>
-        </aside>
-      </div>
+        </motion.aside>
+      </motion.div>
     </div>
+  );
+}
+
+/* ---------- small helpers components used above ---------- */
+function AnimateSuccessOverlay({ show, isDtao, reduce }) {
+  if (!show) return null;
+  return (
+    <motion.div
+      initial={reduce ? {} : { opacity: 0 }}
+      animate={reduce ? {} : { opacity: 1 }}
+      exit={reduce ? {} : { opacity: 0 }}
+      transition={{ duration: 0.28 }}
+      className="fixed inset-0 z-[60] flex items-center justify-center"
+      aria-hidden={!show}
+    >
+      <motion.div
+        initial={reduce ? {} : { scale: 0.98, opacity: 0 }}
+        animate={reduce ? {} : { scale: 1, opacity: 1 }}
+        transition={{ duration: 0.28, type: "spring", stiffness: 350, damping: 28 }}
+        className={`${isDtao ? "rounded-2xl bg-black/80 border border-violet-800 p-6 shadow-xl text-slate-100" : "rounded-2xl bg-white p-6 shadow-xl"}`}
+        style={{ backdropFilter: "blur(6px)" }}
+        role="status"
+        aria-live="polite"
+      >
+        <div className="text-lg font-semibold">Booked!</div>
+        <div className={`${isDtao ? "text-slate-300" : "text-slate-600"} text-sm`}>Your booking was saved.</div>
+      </motion.div>
+
+      {/* translucent backdrop to blur page */}
+      <motion.div
+        initial={reduce ? {} : { opacity: 0 }}
+        animate={reduce ? {} : { opacity: 1 }}
+        transition={{ duration: 0.36 }}
+        className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.35)", backdropFilter: "blur(6px)" }}
+        onClick={(e) => e.stopPropagation()}
+        aria-hidden
+      />
+    </motion.div>
   );
 }

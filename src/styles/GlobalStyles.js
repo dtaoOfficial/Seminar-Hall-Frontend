@@ -1,3 +1,4 @@
+// src/styles/GlobalStyles.js
 import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 
@@ -5,7 +6,9 @@ import { motion } from "framer-motion";
  * GlobalStyles (updated)
  * - Adds .dark -> theme overrides so dtao flips UI
  * - Keeps animated background (respects prefers-reduced-motion)
- * - Minimal changes to your original styles, plus dark-variable mappings
+ * - Adds .toast-glow and simple .btn/.btn-primary helpers
+ *
+ * NOTE: nav-red-dot is intentionally kept in global CSS (src/index.css) to avoid duplication.
  */
 export default function GlobalStyles() {
   useEffect(() => {
@@ -158,6 +161,45 @@ export default function GlobalStyles() {
         .bg-layer { transform-origin: center; }
         @media (max-width: 480px) { .bg-layer { transform: scale(1.05); } }
         @media (min-width: 1280px) { .bg-layer { transform: scale(1); } }
+
+        /* ==================== Added helpers (Toast + Button) ==================== */
+
+        /* subtle toast glow used by NotificationCard */
+        .toast-glow {
+          backdrop-filter: blur(8px) saturate(120%);
+          -webkit-backdrop-filter: blur(8px) saturate(120%);
+          border: 1px solid rgba(255,255,255,0.06);
+          box-shadow: 0 4px 28px rgba(15,23,42,0.12);
+          border-radius: 10px;
+        }
+
+        /* Simple button utilities if you prefer class-only swap instead of AnimatedButton */
+        .btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          cursor: pointer;
+          user-select: none;
+          border-radius: 8px;
+          padding: 0.45rem 0.9rem;
+          font-weight: 600;
+          transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+        }
+        .btn:active { transform: translateY(1px) scale(0.998); }
+        .btn-primary {
+          background: linear-gradient(90deg, #2563eb, #06b6d4);
+          color: white;
+          box-shadow: 0 6px 18px rgba(2,6,23,0.12);
+        }
+        .btn-primary:hover { filter: brightness(1.03); }
+
+        /* Ensure reduced-motion disables the nav pulse if present */
+        @media (prefers-reduced-motion: reduce) {
+          .toast-glow { transition: none !important; animation: none !important; }
+        }
+
+        /* ================================================================================ */
 
       `}</style>
 
