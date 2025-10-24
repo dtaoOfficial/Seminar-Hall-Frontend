@@ -1,0 +1,321 @@
+/* src/index.css (ready to replace) */
+
+/* CSS variables for small theme tweaks */
+:root {
+  --aqua-accent: #06b6d4;
+  --aqua-accent-2: #60f0ff;
+  --glass-bg: rgba(255,255,255,0.72);
+  --glass-border: rgba(255,255,255,0.6);
+  --hero-blur: 10px;
+}
+
+/* Tailwind directives */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* your other global rules after these */
+
+/* 2) Preserve your existing global resets / font smoothing */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f8fafc; /* subtle neutral background, change if you want */
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* 3) Component utilities and mobile-table styles
+   Use these class names in your table components:
+   - Wrap desktop table in a div.table-desktop (default visible)
+   - Provide a div.table-mobile-card (hidden on desktop; visible on small screens)
+   - Use .mobile-row and .mobile-label inside card view
+   - Use .btn and .btn-primary for animated buttons
+*/
+@layer components {
+  /* Buttons (utility style you can apply as className="btn btn-primary") */
+  .btn {
+    @apply inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium transition-transform transition-colors duration-150;
+  }
+  .btn:active {
+    transform: scale(.98);
+  }
+
+  .btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700 active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent border border-gray-200 text-gray-700 hover:bg-gray-50;
+  }
+
+  /* Card style used for mobile table rows */
+  .mobile-card {
+    @apply bg-white p-3 rounded-lg shadow-sm;
+  }
+
+  /* Desktop table wrapper (visible by default) */
+  .table-desktop {
+    display: block;
+  }
+
+  /* Mobile stacked cards - hidden by default, show on smaller screens */
+  .table-mobile-card {
+    display: none;
+  }
+
+  /* Layout for label/value pairs in mobile card */
+  .mobile-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 0.375rem;
+    align-items: start;
+  }
+
+  .mobile-label {
+    @apply text-sm font-semibold text-gray-600;
+  }
+
+  .mobile-value {
+    @apply text-sm text-gray-800;
+  }
+}
+
+/* 4) Responsive toggle: hide desktop table and show mobile cards under 768px width */
+@media (max-width: 767px) {
+  .table-desktop {
+    display: none !important;
+  }
+  .table-mobile-card {
+    display: block !important;
+  }
+
+  /* Make mobile-row labels smaller on very small screens */
+  .mobile-row {
+    grid-template-columns: 100px 1fr;
+  }
+}
+
+/* 5) Small helpers */
+@layer utilities {
+  /* small drop shadow for scroll wrappers if you want */
+  .scroll-shadow {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  }
+
+  /* subtle focus ring for accessibility */
+  .focus-ring:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+    border-radius: .375rem;
+  }
+}
+
+/* --------------------------
+   Button animation utilities
+   -------------------------- */
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .btn-anim, .btn, .btn-primary, .btn-ghost, .animated-press {
+    transition: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+/* Base: gentle physical button feel — safe for production */
+.btn,
+button {
+  -webkit-tap-highlight-color: transparent;
+  appearance: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  line-height: 1;
+  transition-property: transform, box-shadow, background-color, color, opacity;
+  transition-duration: 160ms;
+  transition-timing-function: cubic-bezier(.2,.9,.2,1);
+  will-change: transform;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  outline: none;
+}
+
+/* default small press down on active for touch devices */
+button:active,
+.btn:active {
+  transform: translateY(0.6px) scale(0.995);
+}
+
+/* focus-visible ring (accessible) */
+button:focus-visible,
+.btn:focus-visible {
+  box-shadow: 0 0 0 4px rgba(59,130,246,0.12);
+}
+
+/* Primary style (apply className="btn btn-primary") */
+.btn-primary {
+  background: linear-gradient(180deg,#0ea5c9,#0284c7); /* cyan -> blue */
+  color: white;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.10);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.btn-primary:hover {
+  transform: translateY(-3px) scale(1.002);
+  box-shadow: 0 10px 28px rgba(2,6,23,0.12);
+}
+.btn-primary:active {
+  transform: translateY(0.5px) scale(0.992);
+}
+
+/* Ghost / neutral (apply className="btn btn-ghost") */
+.btn-ghost {
+  background: transparent;
+  color: inherit;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid rgba(100,116,139,0.12);
+  box-shadow: none;
+}
+.btn-ghost:hover {
+  transform: translateY(-2px);
+  background: rgba(0,0,0,0.03);
+}
+.btn-ghost:active {
+  transform: translateY(0.6px) scale(0.995);
+}
+
+/* Small size helper */
+.btn-sm { padding: .28rem .6rem; font-size: 0.85rem; border-radius: 0.45rem; }
+
+/* Large size helper */
+.btn-lg { padding: .7rem 1.1rem; font-size: 1rem; border-radius: 0.6rem; }
+
+/* Icon-only compact */
+.btn-icon {
+  padding: .45rem;
+  width: 38px;
+  height: 38px;
+  display:inline-grid;
+  place-items:center;
+}
+
+/* subtle hover glow for DTAO theme if root has .dtao-mode or .dark */
+.dtao-mode .btn-primary,
+.dark .btn-primary {
+  background: linear-gradient(180deg,#7c4dff,#5b21b6);
+  box-shadow: 0 8px 36px rgba(92,33,184,0.18);
+}
+
+/* mobile-friendly touch target minimums */
+@media (max-width: 640px) {
+  .btn, button {
+    min-height: 44px;
+    min-width: 44px;
+    padding-left: .8rem;
+    padding-right: .8rem;
+  }
+}
+
+/* small UI helper to opt-in to an animated press using CSS only */
+.animated-press {
+  transition: transform 180ms cubic-bezier(.2,.9,.2,1);
+}
+.animated-press:active {
+  transform: translateY(0.8px) scale(0.992);
+}
+
+/* Utility: apply this to anchors to get button look: <a class="btn btn-primary"> */
+a.btn { text-decoration: none; display: inline-flex; align-items:center; justify-content:center; }
+
+/* Provide a tiny subtle ripple-ish focus for keyboard navigation */
+.btn:focus-visible::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 0.6rem;
+  pointer-events: none;
+  opacity: 0.03;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+}
+
+/* --------------------------
+   Scroll Reveal Animations
+   -------------------------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.55s cubic-bezier(.2,.9,.2,1),
+              transform 0.55s cubic-bezier(.2,.9,.2,1);
+  will-change: opacity, transform;
+}
+.reveal-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal-active {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* --------------------------
+   Pending-Requests Red Dot Pulse
+   -------------------------- */
+@keyframes pulseDot {
+  0%   { transform: scale(1); opacity: 1; }
+  70%  { transform: scale(1.7); opacity: 0.25; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+.nav-red-dot {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.45rem;
+  width: 0.65rem;
+  height: 0.65rem;
+  background-color: #ef4444; /* red-500 */
+  border-radius: 9999px;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.9);
+}
+.nav-red-dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: #ef4444;
+  animation: pulseDot 1.2s infinite ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-red-dot::before { animation: none; }
+}
+
+/* Toast subtle glow + enter blur fix (used by NotificationCard.className="toast-glow") */
+.toast-glow {
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 4px 28px rgba(15,23,42,0.12);
+  border-radius: 10px; /* matches card shape */
+}
+
+/* Respect reduced-motion - Framer also respects prefers-reduced-motion, but this ensures CSS anims are off */
+@media (prefers-reduced-motion: reduce) {
+  .toast-glow { transition: none !important; animation: none !important; }
+}
