@@ -867,7 +867,7 @@ export default function AddSeminarPage() {
 
               <div>
                 <button onClick={handleSubmit} disabled={!lastCheckOk || loadingSubmit} className={`w-full py-3 rounded-lg font-semibold ${lastCheckOk ? "bg-emerald-600 text-white" : "bg-gray-200 text-slate-500 cursor-not-allowed"}`}>
-                  {loadingSubmit ? "Submitting..." : "Request Seminar"}
+                  {loadingSubmit ? "Submitting..." : "Submit"}
                 </button>
                 {!lastCheckOk && lastCheckMessage && <div className="mt-2 text-sm text-rose-600">{lastCheckMessage}</div>}
                 {lastCheckOk && lastCheckMessage && <div className="mt-2 text-sm text-emerald-700">{lastCheckMessage}</div>}

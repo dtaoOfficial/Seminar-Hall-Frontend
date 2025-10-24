@@ -10,17 +10,17 @@ const LINKS_ADMIN = [
   { to: "/admin/add-user", label: "Add User" },
   { to: "/admin/add-seminar", label: "Add Seminar" },
   { to: "/admin/requests", label: "Requests" },
-  { to: "/admin/seminars", label: "All Seminars" },
+  { to: "/admin/seminars", label: "Venue" },
   { to: "/admin/departments", label: "Dept Creds" },
   { to: "/admin/manage-departments", label: "Manage Depts" },
   { to: "/admin/halls", label: "Manage Halls" },
-  { to: "/admin/operators", label: "Hall Operaters" },
+  { to: "/admin/operators", label: "Venue Operaters" },
 ];
 
 const LINKS_DEPT = [
   { to: "/dept", label: "Dashboard", exact: true },
-  { to: "/dept/history", label: "Status" },
-  { to: "/dept/status", label: "Requests" },
+  { to: "/dept/history", label: "Approved Halls" },
+  { to: "/dept/status", label: "Status" },
 ];
 
 export default function Navbar({ user = {}, handleLogout }) {
