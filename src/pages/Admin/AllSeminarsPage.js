@@ -1,5 +1,5 @@
 // src/pages/Admin/AllSeminarsPage.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react"; // <-- added useRef
 import api from "../../utils/api";
 import { useNotification } from "../../components/NotificationsProvider";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -45,6 +45,8 @@ const AllSeminarsPage = () => {
   // transient inline confirmation map: { [seminarId]: { hall: string, expiresAt: Date } }
   const [confirmMap, setConfirmMap] = useState({});
 
+  // --- NEW: ref for table scroll container ---
+  const tableScrollRef = useRef(null);
 
   const normalizeSeminar = (s) => ({
     id: s.id ?? s._id ?? s.seminarId ?? `seminar-${Math.random()}`,
@@ -285,6 +287,21 @@ const AllSeminarsPage = () => {
   const rowHover = isDtao ? "hover:bg-black/30" : "hover:bg-gray-50";
   const divider = isDtao ? "divide-violet-800" : "divide-gray-200";
 
+  // --- NEW: wheel handler that maps vertical wheel to horizontal scroll when hovering the table ---
+  const handleWheel = useCallback((e) => {
+    // If native horizontal scroll is present (user used horizontal wheel), let it through
+    if (Math.abs(e.deltaX) > 0) return;
+    // Only intercept vertical wheel when there's horizontal overflow
+    const el = e.currentTarget;
+    if (!el) return;
+    if (el.scrollWidth <= el.clientWidth) return; // no overflow -> don't intercept
+    // Map vertical movement to horizontal scroll
+    e.preventDefault();
+    // small multiplier to make scroll feel natural on desktop mice
+    const multiplier = 1;
+    el.scrollLeft += e.deltaY * multiplier;
+  }, []);
+
   return (
     <div className={`min-h-screen py-8 ${pageBg}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
@@ -350,7 +367,14 @@ const AllSeminarsPage = () => {
           ) : (
             <>
               {isDesktopView && (
-                <div className="w-full overflow-x-auto">
+                // <-- attach onWheel and ref here to allow side-scrolling with the mouse wheel
+                <div
+                  className="w-full overflow-x-auto"
+                  onWheel={handleWheel}
+                  ref={tableScrollRef}
+                  // make sure it is focusable for keyboard users
+                  tabIndex={0}
+                >
                   <table className={`min-w-full divide-y ${divider}`}>
                     <thead className={tableHeadBg}>
                       <tr>
