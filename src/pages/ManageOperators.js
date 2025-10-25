@@ -14,7 +14,8 @@ export default function ManageOperatorsPage() {
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
-    hallName: "",
+    hallIds: [], // new: array of hall ids
+    hallNames: [], // optional helper (sent too)
     headName: "",
     headEmail: "",
     phone: "",
@@ -35,12 +36,11 @@ export default function ManageOperatorsPage() {
   const mainRef = useRef(null);
   const formTopRef = useRef(null);
 
-  /* ---------- Accessible Dropdown ---------- */
-  function Dropdown({ options = [], value, onChange, className = "", ariaLabel = "Select", placeholder = "" }) {
+  /* ---------- MultiSelect for Halls ---------- */
+  function MultiSelect({ options = [], value = [], onChange, placeholder = "Select halls", ariaLabel = "Select halls" }) {
+    // options: [{ value: id, label: name }]
     const ref = useRef(null);
     const [open, setOpen] = useState(false);
-    const normalized = options.map((o) => (typeof o === "string" ? { value: o, label: o } : { value: o.value, label: o.label ?? o.value }));
-    const selectedLabel = (normalized.find((o) => String(o.value) === String(value)) || {}).label ?? "";
 
     useEffect(() => {
       function onDoc(e) {
@@ -51,63 +51,41 @@ export default function ManageOperatorsPage() {
       return () => document.removeEventListener("mousedown", onDoc);
     }, []);
 
-    const onKeyDownRoot = (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        setOpen((s) => !s);
-      } else if (e.key === "Escape") {
-        setOpen(false);
-      }
+    const toggle = (v) => {
+      if (value.includes(v)) onChange(value.filter((x) => x !== v));
+      else onChange([...value, v]);
     };
 
-    const onOptionKey = (e, opt) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        onChange(opt.value);
-        setOpen(false);
-      }
-    };
+    const selectedLabels = options.filter((o) => value.includes(o.value)).map((o) => o.label);
+    const label = selectedLabels.length ? selectedLabels.join(", ") : placeholder;
 
     return (
-      <div ref={ref} className={`relative inline-block w-full ${className}`}>
+      <div ref={ref} className="relative w-full">
         <button
           type="button"
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-label={ariaLabel}
           onClick={() => setOpen((s) => !s)}
-          onKeyDown={onKeyDownRoot}
           className={`w-full text-left rounded-md px-3 py-2 border flex items-center justify-between ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : "bg-white border-gray-200 text-gray-800"}`}
         >
-          <span className={`${selectedLabel ? "" : (isDtao ? "text-slate-400" : "text-gray-400")}`}>{selectedLabel || placeholder}</span>
+          <span className={`${selectedLabels.length ? "" : (isDtao ? "text-slate-400" : "text-gray-400")}`}>{label}</span>
           <svg className={`w-4 h-4 ml-2 ${isDtao ? "text-slate-300" : "text-slate-600"}`} viewBox="0 0 24 24" fill="none">
             <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
 
         {open && (
-          <div
-            role="listbox"
-            tabIndex={-1}
-            className={`absolute z-50 mt-1 w-full rounded-md shadow-lg ${isDtao ? "bg-black/80 border border-violet-800 text-slate-100" : "bg-white border"}`}
-            style={{ maxHeight: `${5 * 40}px`, overflowY: "auto" }}
-          >
-            {normalized.map((opt) => (
-              <div
-                key={opt.value}
-                role="option"
-                aria-selected={String(opt.value) === String(value)}
-                tabIndex={0}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-                onKeyDown={(e) => onOptionKey(e, opt)}
-                className={`px-3 py-2 cursor-pointer ${isDtao ? "hover:bg-violet-900/60" : "hover:bg-gray-100"} ${String(opt.value) === String(value) ? (isDtao ? "bg-violet-900/70 font-medium" : "bg-blue-50 font-medium") : ""}`}
-              >
-                {opt.label}
-              </div>
-            ))}
+          <div className={`absolute z-50 mt-1 w-full rounded-md shadow-lg ${isDtao ? "bg-black/80 border border-violet-800 text-slate-100" : "bg-white border"}`} style={{ maxHeight: 220, overflowY: "auto" }}>
+            {options.map((opt) => {
+              const checked = value.includes(opt.value);
+              return (
+                <label key={opt.value} className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${isDtao ? "hover:bg-violet-900/60" : "hover:bg-gray-100"}`}>
+                  <input type="checkbox" checked={checked} onChange={() => toggle(opt.value)} />
+                  <span className={`${checked ? "font-medium" : ""}`}>{opt.label}</span>
+                </label>
+              );
+            })}
           </div>
         )}
       </div>
@@ -119,8 +97,8 @@ export default function ManageOperatorsPage() {
     setLoading(true);
     try {
       const res = await api.get("/hall-operators");
+      // backend now returns operators with hallNames array & hallIds array
       setOperators(Array.isArray(res.data) ? res.data : []);
-      // scroll into view so user notices refreshed list
       try {
         if (mainRef.current && mainRef.current.scrollIntoView) mainRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
       } catch (e) {}
@@ -149,17 +127,20 @@ export default function ManageOperatorsPage() {
   }, []);
 
   function resetForm() {
-    setForm({ hallName: "", headName: "", headEmail: "", phone: "" });
+    setForm({ hallIds: [], hallNames: [], headName: "", headEmail: "", phone: "" });
     setEditingId(null);
-    // focus top of form
     try {
       if (formTopRef.current && formTopRef.current.scrollIntoView) formTopRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (e) {}
   }
 
   function validateForm() {
-    if (!form.hallName || !form.headName.trim() || !form.headEmail.trim()) {
-      notify("Hall, head name and email are required", "warn", 2200);
+    if (!form.hallIds || form.hallIds.length === 0) {
+      notify("Select at least one hall", "warn", 2200);
+      return false;
+    }
+    if (!form.headName.trim() || !form.headEmail.trim()) {
+      notify("Head name and email are required", "warn", 2200);
       return false;
     }
 
@@ -184,12 +165,19 @@ export default function ManageOperatorsPage() {
     e.preventDefault();
     if (!validateForm()) return;
 
+    // prepare payload: include hallIds and hallNames for convenience
+    const hallNames = halls.filter((h) => form.hallIds.includes(h.id)).map((h) => h.name);
+    const payload = {
+      ...form,
+      hallNames,
+    };
+
     try {
       if (editingId) {
-        await api.put(`/hall-operators/${editingId}`, form);
+        await api.put(`/hall-operators/${editingId}`, payload);
         notify("Operator updated", "success", 2200);
       } else {
-        await api.post("/hall-operators", form);
+        await api.post("/hall-operators", payload);
         notify("Operator created", "success", 2200);
       }
       resetForm();
@@ -210,12 +198,12 @@ export default function ManageOperatorsPage() {
     const id = op.id ?? op._id;
     setEditingId(id);
     setForm({
-      hallName: op.hallName || "",
+      hallIds: (op.hallIds && op.hallIds.length) ? op.hallIds : (op.hallId ? [op.hallId] : []),
+      hallNames: (op.hallNames && op.hallNames.length) ? op.hallNames : (op.hallName ? [op.hallName] : []),
       headName: op.headName || "",
       headEmail: op.headEmail || "",
       phone: op.phone || "",
     });
-    // scroll to form top & focus
     try {
       if (formTopRef.current && formTopRef.current.scrollIntoView) formTopRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (e) {}
@@ -228,7 +216,6 @@ export default function ManageOperatorsPage() {
     try {
       await api.delete(`/hall-operators/${id}`);
       notify("Deleted", "success", 1800);
-      // If deleted operator is selected, clear selection
       if (selectedOperator && (selectedOperator.id === id || selectedOperator._id === id)) {
         setSelectedOperator(null);
       }
@@ -253,12 +240,12 @@ export default function ManageOperatorsPage() {
       notify("No rows to export", "info", 1800);
       return;
     }
-    const headers = ["Hall", "Head", "Email", "Phone"];
+    const headers = ["Halls", "Head", "Email", "Phone"];
     const csv = [
       headers.join(","),
       ...rows.map((r) =>
         [
-          `"${(r.hallName || "").replace(/"/g, '""')}"`,
+          `"${((r.hallNames && r.hallNames.join("; ")) || r.hallName || "").replace(/"/g, '""')}"`,
           `"${(r.headName || "").replace(/"/g, '""')}"`,
           `"${(r.headEmail || "").replace(/"/g, '""')}"`,
           `"${(r.phone || "").replace(/"/g, '""')}"`,
@@ -280,9 +267,10 @@ export default function ManageOperatorsPage() {
   const filtered = useMemo(() => {
     const q = (query || "").trim().toLowerCase();
     return operators.filter((op) => {
-      if (hallFilter && op.hallName !== hallFilter) return false;
+      const hallList = (op.hallNames && op.hallNames.join(" ")) || op.hallName || "";
+      if (hallFilter && !hallList.includes(hallFilter)) return false;
       if (!q) return true;
-      const hay = `${op.hallName || ""} ${op.headName || ""} ${op.headEmail || ""}`.toLowerCase();
+      const hay = `${hallList} ${op.headName || ""} ${op.headEmail || ""}`.toLowerCase();
       return hay.includes(q);
     });
   }, [operators, query, hallFilter]);
@@ -312,16 +300,13 @@ export default function ManageOperatorsPage() {
         <form ref={formTopRef} onSubmit={handleSubmit} className={`${isDtao ? "bg-black/40 border border-violet-900" : "bg-white"} rounded-lg shadow p-4 sm:p-6 mb-6`}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-1">
-              <label className={`block text-sm font-medium mb-1 ${isDtao ? "text-slate-200" : "text-gray-700"}`}>Hall</label>
+              <label className={`block text-sm font-medium mb-1 ${isDtao ? "text-slate-200" : "text-gray-700"}`}>Halls</label>
 
-              {/* use custom Dropdown for halls */}
-              <Dropdown
-                options={[{ value: "", label: "-- Select Hall --" }, ...halls.map((h) => ({ value: h.name, label: h.name }))]}
-                value={form.hallName || ""}
-                onChange={(v) => setForm({ ...form, hallName: v })}
-                ariaLabel="Select hall"
-                className=""
-                placeholder="-- Select Hall --"
+              <MultiSelect
+                options={halls.map((h) => ({ value: h.id, label: h.name }))}
+                value={form.hallIds}
+                onChange={(ids) => setForm({ ...form, hallIds: ids })}
+                placeholder="-- Select halls --"
               />
             </div>
 
@@ -382,7 +367,7 @@ export default function ManageOperatorsPage() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setForm({ hallName: "", headName: "", headEmail: "", phone: "" })}
+                    onClick={() => setForm({ hallIds: [], hallNames: [], headName: "", headEmail: "", phone: "" })}
                     className={`${isDtao ? "inline-flex items-center px-4 py-2 bg-transparent border border-violet-700 text-slate-200 rounded-md hover:bg-black/10" : "inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"}`}
                   >
                     Clear
@@ -395,7 +380,7 @@ export default function ManageOperatorsPage() {
           </div>
         </form>
 
-        {/* controls: search / filter / export */}
+        {/* controls */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <input
@@ -405,15 +390,20 @@ export default function ManageOperatorsPage() {
               className={`${isDtao ? "w-full sm:w-80 border border-violet-700 rounded-md px-3 py-2 bg-transparent text-slate-200" : "w-full sm:w-80 border border-gray-200 rounded-md px-3 py-2 bg-white"}`}
             />
 
-            {/* hall filter uses Dropdown */}
+            {/* hall filter uses simple dropdown (name-based) */}
             <div style={{ width: 200 }}>
-              <Dropdown
-                options={[{ value: "", label: "All halls" }, ...halls.map((h) => ({ value: h.name, label: h.name }))]}
+              <select
                 value={hallFilter}
-                onChange={(v) => setHallFilter(v)}
-                ariaLabel="Filter hall"
-                placeholder="All halls"
-              />
+                onChange={(e) => setHallFilter(e.target.value)}
+                className={`${isDtao ? "w-full border border-violet-700 rounded-md px-3 py-2 bg-transparent text-slate-200" : "w-full border border-gray-200 rounded-md px-3 py-2 bg-white"}`}
+              >
+                <option value="">All halls</option>
+                {halls.map((h) => (
+                  <option key={h.id} value={h.name}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <button
@@ -449,7 +439,7 @@ export default function ManageOperatorsPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className={`${isDtao ? "bg-black/30" : "bg-gray-50"}`}>
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium">Hall</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Halls</th>
                   <th className="px-4 py-3 text-left text-sm font-medium">Head</th>
                   <th className="px-4 py-3 text-left text-sm font-medium">Email</th>
                   <th className="px-4 py-3 text-left text-sm font-medium">Phone</th>
@@ -473,9 +463,10 @@ export default function ManageOperatorsPage() {
                 ) : (
                   paged.map((op) => {
                     const id = op.id ?? op._id;
+                    const hallsText = (op.hallNames && op.hallNames.join(", ")) || op.hallName || "—";
                     return (
                       <tr key={id} className="cursor-pointer hover:bg-gray-50" onClick={() => handleSelectOperator(op)}>
-                        <td className="px-4 py-3 text-sm">{op.hallName}</td>
+                        <td className="px-4 py-3 text-sm">{hallsText}</td>
                         <td className="px-4 py-3 text-sm">{op.headName}</td>
                         <td className="px-4 py-3 text-sm flex items-center gap-3">
                           <span>{op.headEmail}</span>
@@ -514,7 +505,6 @@ export default function ManageOperatorsPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // select to show details
                                 setSelectedOperator(op);
                               }}
                               className="px-3 py-1 bg-gray-100 text-gray-800 rounded text-sm"
@@ -540,11 +530,12 @@ export default function ManageOperatorsPage() {
             ) : (
               paged.map((op) => {
                 const id = op.id ?? op._id;
+                const hallsText = (op.hallNames && op.hallNames.join(", ")) || op.hallName || "—";
                 return (
                   <div key={id} className="p-4 border-b last:border-b-0">
                     <div className="flex justify-between items-start">
                       <div>
-                        <div className="text-sm font-medium">{op.hallName}</div>
+                        <div className="text-sm font-medium">{hallsText}</div>
                         <div className="text-sm text-gray-600">{op.headName}</div>
                         <div className="text-sm text-gray-600">{op.phone || "—"}</div>
                         <div className="text-sm text-gray-600 flex items-center gap-2">
@@ -580,7 +571,7 @@ export default function ManageOperatorsPage() {
             <div className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white border"} rounded-lg p-4 shadow`}>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-lg font-semibold">{selectedOperator.hallName}</h3>
+                  <h3 className="text-lg font-semibold">{(selectedOperator.hallNames && selectedOperator.hallNames.join(", ")) || selectedOperator.hallName}</h3>
                   <div className="text-sm text-slate-400 mt-1">{selectedOperator.headName}</div>
                 </div>
 
@@ -624,7 +615,6 @@ export default function ManageOperatorsPage() {
               </div>
             </div>
           ) : (
-            // show a helpful hint when no operator selected
             <div className={`${isDtao ? "text-slate-400" : "text-gray-600"} text-sm`}>Click "Details" on any row to view full operator details and edit/delete actions.</div>
           )}
         </div>
