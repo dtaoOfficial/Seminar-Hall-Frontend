@@ -12,8 +12,6 @@ import ManageHallsPage from "../pages/Admin/ManageHallsPage.js";
 import ManageOperatorsPage from "../pages/ManageOperators";
 import SeminarDetails from "../pages/Admin/SeminarDetails";
 import ExportPage from "../pages/Admin/ExportPage";
-
-// ** new import **
 import AdminCalendarPage from "../pages/Admin/AdminCalendarPage";
 
 import { CSVLink } from "react-csv";
@@ -47,7 +45,7 @@ const safeDate = (d) => {
 const normalizeSeminar = (s) => ({
   id: s._id ?? s.id ?? (s._key ?? null) ?? Math.random().toString(36).slice(2),
   hallName: s.hallName || (s.hall && (s.hall.name || s.hall)) || s.hall_id || s.room || "--",
-  slotTitle: s.slotTitle || s.title || s.topic || s.name || "Untitled Seminar",
+  slotTitle: s.slotTitle || s.title || s.topic || s.name || s.bookingName || s.organizer || "Untitled Seminar",
   bookingName: s.bookingName || s.organizer || s.requesterName || s.userName || s.createdBy || "--",
   department: s.department || s.dept || s.departmentName || "",
   date: s.date ?? s.appliedAt ?? s.createdAt ?? s.startDate ?? null,
@@ -80,7 +78,7 @@ const AdminDashboard = ({ user, setUser }) => {
   const [hallDayBookings, setHallDayBookings] = useState([]);
   const [hallDayLoading, setHallDayLoading] = useState(false);
 
-  // notifications feed (marquee)
+  // notifications feed
   const [requestsFeed, setRequestsFeed] = useState([]);
 
   /* fetchers */
@@ -167,7 +165,7 @@ const AdminDashboard = ({ user, setUser }) => {
     if (selectedHall && selectedDate) fetchHallDay(selectedHall, selectedDate);
   }, [selectedHall, selectedDate, fetchHallDay]);
 
-  // marquee poll for PENDING / CANCEL_REQUESTED
+  // marquee-like poll for PENDING / CANCEL_REQUESTED (keeps original poll behavior)
   useEffect(() => {
     let cancelled = false;
     let timer = null;
@@ -248,24 +246,55 @@ const AdminDashboard = ({ user, setUser }) => {
           <Route path="halls" element={<ManageHallsPage fetchHalls={fetchHalls} halls={halls} />} />
           <Route path="export" element={<ExportPage />} />
 
-          {/* <-- NEW: register calendar route so Open Full Calendar works */}
+          {/* NEW: calendar route */}
           <Route path="calendar" element={<AdminCalendarPage />} />
 
           <Route
             path="*"
             element={
               <>
-                {/* Top marquee notifications (scrolling) */}
+                {/* Top ticker notifications (replaces deprecated <marquee>) */}
                 <div className="mb-4">
                   {requestsFeed && requestsFeed.length > 0 ? (
                     <div className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white shadow-sm"} rounded-md p-2 overflow-hidden`}>
-                      <marquee behavior="scroll" direction="left" scrollamount="4" className="text-sm">
-                        {requestsFeed.map((it, idx) => (
-                          <span key={it.id || idx} className="mx-4">
-                            <strong>{it.type}:</strong> {it.title} — <em>{it.hall}</em> ({it.date})
-                          </span>
-                        ))}
-                      </marquee>
+                      {/* Inline styles + accessible animation that respects prefers-reduced-motion */}
+                      <style>{`
+                        .ticker-wrap { position: relative; overflow: hidden; width: 100%; }
+                        .ticker-inner { display: inline-flex; gap: 32px; white-space: nowrap; will-change: transform; }
+                        @keyframes tickerScroll {
+                          0% { transform: translateX(0); }
+                          100% { transform: translateX(-50%); }
+                        }
+                        /* duplicate content so scroll appears continuous */
+                        .ticker-play { animation: tickerScroll linear infinite; animation-duration: 18s; }
+                        /* pause animation on hover/focus */
+                        .ticker-wrap:hover .ticker-play,
+                        .ticker-wrap:focus-within .ticker-play { animation-play-state: paused; }
+                        /* reduce motion support */
+                        @media (prefers-reduced-motion: reduce) {
+                          .ticker-play { animation: none; transform: translateX(0); }
+                        }
+                      `}</style>
+
+                      <div className="ticker-wrap" tabIndex={0} aria-live="polite" aria-atomic="true" role="status">
+                        {/* duplicate nodes: render feed twice to create continuous loop effect */}
+                        <div className="ticker-play">
+                          <div className="ticker-inner">
+                            {requestsFeed.map((it, idx) => (
+                              <span key={`a-${it.id || idx}`} className="text-sm">
+                                <strong>{it.type}:</strong> {it.title} — <em>{it.hall}</em> ({it.date})
+                              </span>
+                            ))}
+                          </div>
+                          <div className="ticker-inner" aria-hidden>
+                            {requestsFeed.map((it, idx) => (
+                              <span key={`b-${it.id || idx}`} className="text-sm">
+                                <strong>{it.type}:</strong> {it.title} — <em>{it.hall}</em> ({it.date})
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <div className="h-0" />

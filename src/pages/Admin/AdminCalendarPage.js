@@ -10,45 +10,76 @@ const MONTHS = [
   "July","August","September","October","November","December"
 ];
 
-const toISODate = (d) => {
-  const dt = d instanceof Date ? d : new Date(String(d));
-  if (isNaN(dt.getTime())) return null;
-  const yyyy = dt.getFullYear();
-  const mm = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-};
+/**
+ * buildCalendarFromSeminars - pure helper
+ * - Accepts seminars array and explicit filter values (hall/year/month)
+ * - Returns array for days in month: [{date, bookingCount, bookings, free}, ...]
+ */
+function buildCalendarFromSeminars(seminarsList = [], selectedHallKey, yearParam, monthParam) {
+  // collect approved seminars only
+  const approved = Array.isArray(seminarsList)
+    ? seminarsList.filter((s) => String((s.status || "APPROVED")).toUpperCase() === "APPROVED")
+    : [];
 
-// checks if a seminar object falls into the requested month/year and hall
-const matchesFilter = (s, selectedHallKey, year, month) => {
-  if (!s) return false;
-  // pick hall name / id heuristics
-  const hallCandidates = [
-    s.hallName,
-    s.hall?.name,
-    s.hall,
-    s.hall_id,
-    s.room,
-    s.venue,
-  ].filter(Boolean).map(String);
+  // group by date (YYYY-MM-DD)
+  const map = new Map();
 
-  // If selectedHallKey looks like an id and found in candidates, allow match.
-  const hallMatch = selectedHallKey
-    ? hallCandidates.some((c) => String(c) === String(selectedHallKey))
-    : true;
+  const matchesFilter = (s) => {
+    if (!s) return false;
+    const hallCandidates = [
+      s.hallName,
+      s.hall?.name,
+      s.hall,
+      s.hall_id,
+      s.room,
+      s.venue,
+    ].filter(Boolean).map(String);
 
-  // pick a date (prefer single-day `date` or startDate)
-  const rawDate = s.date ?? s.startDate ?? s.appliedAt ?? s.createdAt ?? null;
-  if (!rawDate) return false;
-  const iso = String(rawDate).split("T")[0];
-  const dt = new Date(iso);
-  if (isNaN(dt.getTime())) return false;
+    const hallMatch = selectedHallKey
+      ? hallCandidates.some((c) => String(c) === String(selectedHallKey))
+      : true;
 
-  const m = dt.getMonth() + 1;
-  const y = dt.getFullYear();
+    const rawDate = s.date ?? s.startDate ?? s.appliedAt ?? s.createdAt ?? null;
+    if (!rawDate) return false;
+    const iso = String(rawDate).split("T")[0];
+    const dt = new Date(iso);
+    if (isNaN(dt.getTime())) return false;
 
-  return hallMatch && y === Number(year) && m === Number(month);
-};
+    const m = dt.getMonth() + 1;
+    const y = dt.getFullYear();
+
+    return hallMatch && y === Number(yearParam) && m === Number(monthParam);
+  };
+
+  approved.forEach((s) => {
+    if (!matchesFilter(s)) return;
+
+    let rawDate = s.date ?? s.startDate ?? s.appliedAt ?? null;
+    if (!rawDate && s.appliedAt) rawDate = s.appliedAt;
+    if (!rawDate) return;
+
+    const iso = String(rawDate).split("T")[0];
+    if (!iso) return;
+
+    const arr = map.get(iso) || [];
+    arr.push(s);
+    map.set(iso, arr);
+  });
+
+  const daysInMonth = new Date(yearParam, monthParam, 0).getDate();
+  const result = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isoDate = `${yearParam}-${String(monthParam).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const bookings = map.get(isoDate) || [];
+    result.push({
+      date: isoDate,
+      bookingCount: bookings.length,
+      bookings: bookings,
+      free: bookings.length === 0,
+    });
+  }
+  return result;
+}
 
 const AdminCalendarPage = () => {
   const [seminarHalls, setSeminarHalls] = useState([]);
@@ -62,76 +93,34 @@ const AdminCalendarPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
 
-  // Load halls (use /halls which your AdminDashboard uses)
-  const loadHalls = useCallback(async () => {
-    try {
-      const res = await api.get("/halls");
-      const data = Array.isArray(res?.data) ? res.data : res?.data?.halls ?? [];
-      setSeminarHalls(data);
-      if (!selectedHall && data.length > 0) {
-        // prefer hallName, then name, then id
-        const first = data[0];
-        const key = first.hallName ?? first.name ?? first._id ?? first.id ?? "";
-        setSelectedHall(key);
-      }
-    } catch (err) {
-      console.error("loadHalls error:", err?.response ?? err);
-      setSeminarHalls([]);
-      if (err?.response?.status === 401) {
-        setError("Unauthorized - please login again.");
-      } else {
-        setError("Failed to load halls.");
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedHall]);
-
+  // Load halls once on mount
   useEffect(() => {
-    loadHalls();
-  }, [loadHalls]);
-
-  // Build calendar summary from raw seminars array
-  const buildCalendarFromSeminars = (seminarsList) => {
-    // collect approved seminars only
-    const approved = Array.isArray(seminarsList)
-      ? seminarsList.filter((s) => String((s.status || "APPROVED")).toUpperCase() === "APPROVED")
-      : [];
-
-    // group by date (YYYY-MM-DD)
-    const map = new Map();
-    approved.forEach((s) => {
-      // determine date value - prefer s.date or s.startDate or if it's a range, use startDate
-      let rawDate = s.date ?? s.startDate ?? null;
-      if (!rawDate && s.appliedAt) rawDate = s.appliedAt;
-      if (!rawDate) return;
-
-      const iso = String(rawDate).split("T")[0];
-      if (!iso) return;
-
-      // only include if matches selected hall/month/year
-      if (!matchesFilter(s, selectedHall, year, month)) return;
-
-      const arr = map.get(iso) || [];
-      arr.push(s);
-      map.set(iso, arr);
-    });
-
-    // convert map to array of entries for days in month (sparse)
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const result = [];
-    for (let d = 1; d <= daysInMonth; d++) {
-      const isoDate = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      const bookings = map.get(isoDate) || [];
-      result.push({
-        date: isoDate,
-        bookingCount: bookings.length,
-        bookings: bookings,
-        free: bookings.length === 0,
-        // totalBookedMinutes optionally can be computed later by CalendarGrid if needed
-      });
-    }
-    return result;
-  };
+    let mounted = true;
+    (async function loadHalls() {
+      try {
+        const res = await api.get("/halls");
+        const data = Array.isArray(res?.data) ? res.data : res?.data?.halls ?? [];
+        if (!mounted) return;
+        setSeminarHalls(data);
+        if (!selectedHall && data.length > 0) {
+          const first = data[0];
+          const key = first.hallName ?? first.name ?? first._id ?? first.id ?? "";
+          setSelectedHall(key);
+        }
+      } catch (err) {
+        console.error("loadHalls error:", err?.response ?? err);
+        if (!mounted) return;
+        setSeminarHalls([]);
+        if (err?.response?.status === 401) {
+          setError("Unauthorized - please login again.");
+        } else {
+          setError("Failed to load halls.");
+        }
+      }
+    })();
+    return () => { mounted = false; };
+    // intentionally no dependencies: run once
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch seminars and build calendarData
   const fetchCalendar = useCallback(async () => {
@@ -142,10 +131,9 @@ const AdminCalendarPage = () => {
     setLoading(true);
     setError("");
     try {
-      // fetch all seminars and build local calendar summary (this avoids depending on a backend calendar endpoint)
       const res = await api.get("/seminars");
       const raw = Array.isArray(res?.data) ? res.data : res?.data?.seminars ?? [];
-      const cal = buildCalendarFromSeminars(raw);
+      const cal = buildCalendarFromSeminars(raw, selectedHall, year, month);
       setCalendarData(cal);
     } catch (err) {
       console.error("fetchCalendar error:", err?.response ?? err);
@@ -164,7 +152,6 @@ const AdminCalendarPage = () => {
   const fetchDayBookings = useCallback(async (date) => {
     if (!selectedHall || !date) return;
     try {
-      // We already have calendarData with bookings array — prefer extracting from it
       const found = (calendarData || []).find((c) => c.date === date);
       if (found && Array.isArray(found.bookings)) {
         setDayBookings(found.bookings);
@@ -173,7 +160,7 @@ const AdminCalendarPage = () => {
         return;
       }
 
-      // fallback: ask backend for /seminars filter by date+hall (if your backend supports it)
+      // fallback: ask backend for /seminars filter by date+hall
       const res = await api.get(`/seminars?date=${encodeURIComponent(date)}&hallName=${encodeURIComponent(selectedHall)}`);
       const list = Array.isArray(res?.data) ? res.data : res?.data?.seminars ?? [];
       setDayBookings(list);

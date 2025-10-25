@@ -78,7 +78,6 @@ const CalendarGrid = ({ data = [], onDayClick = () => {}, month, year }) => {
     );
 
     const bookingCount = approvedBookings.length;
-    const free = bookingCount === 0;
     let totalBookedMinutes = 0;
 
     approvedBookings.forEach((b) => {
@@ -91,15 +90,14 @@ const CalendarGrid = ({ data = [], onDayClick = () => {}, month, year }) => {
       }
     });
 
-    const percentFull = Math.round(
-      Math.min(100, (totalBookedMinutes / DAY_TOTAL_MIN) * 100)
-    );
+    const percentFull = bookingCount === 0
+      ? 0
+      : Math.round(Math.min(100, (totalBookedMinutes / DAY_TOTAL_MIN) * 100));
 
     dayCells.push({
       date: dateStr,
-      free,
       bookingCount,
-      percentFull: bookingCount === 0 ? 0 : percentFull,
+      percentFull,
     });
   }
 
@@ -120,7 +118,7 @@ const CalendarGrid = ({ data = [], onDayClick = () => {}, month, year }) => {
           if (!cell)
             return <div key={`blank-${idx}`} className="h-20 sm:h-24" />;
 
-          const { date, bookingCount, percentFull, free } = cell;
+          const { date, bookingCount, percentFull } = cell;
           const dateNum = Number(date.split("-")[2]);
           const booked = bookingCount > 0;
 
