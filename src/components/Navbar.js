@@ -2,7 +2,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
-import AnimatedButton from "../components/AnimatedButton"; // ← added
+import AnimatedButton from "../components/AnimatedButton";
+import api from "../utils/api";
+import { useNotification } from "./NotificationsProvider";
 
 /* Links arrays (unchanged) */
 const LINKS_ADMIN = [
@@ -25,6 +27,8 @@ const LINKS_DEPT = [
 
 export default function Navbar({ user = {}, handleLogout }) {
   const navigate = useNavigate();
+  const { notify } = useNotification();
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
@@ -41,11 +45,17 @@ export default function Navbar({ user = {}, handleLogout }) {
     typeof window !== "undefined" ? window.innerWidth < 768 : false
   );
 
+  // notification state
   const [newReqCount, setNewReqCount] = useState(0);
+  const [shake, setShake] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [requestsList, setRequestsList] = useState([]); // array of items to show in dropdown
+  const [loadingRequests, setLoadingRequests] = useState(false);
 
   const role = (user?.role || "ADMIN").toString().toUpperCase();
   const LINKS = role === "DEPARTMENT" ? LINKS_DEPT : LINKS_ADMIN;
 
+  /* ======= layout measurement (kept from your original) ======= */
   const computeVisibleCount = useCallback(() => {
     const container = navContainerRef.current;
     const measureContainer = measureContainerRef.current;
@@ -131,9 +141,9 @@ export default function Navbar({ user = {}, handleLogout }) {
       if (userOpen && userWrapRef.current && !userWrapRef.current.contains(e.target))
         setUserOpen(false);
     };
-    if (moreOpen || userOpen) document.addEventListener("mousedown", onDoc);
+    if (moreOpen || userOpen || notifOpen) document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [moreOpen, userOpen]);
+  }, [moreOpen, userOpen, notifOpen]);
 
   useEffect(() => {
     if (drawerOpen) {
@@ -168,25 +178,185 @@ export default function Navbar({ user = {}, handleLogout }) {
   const visibleLinks = LINKS.slice(0, effectiveVisibleCount);
   const hiddenLinks = LINKS.slice(effectiveVisibleCount);
 
+  /* ======= Real-time handling: listen to custom event 'new-requests' =======
+     NOTE: only admin should show badge/receive bell behavior. We respect that here.
+  */
   useEffect(() => {
     const handler = (e) => {
+      // only admin sees notifications/bell
+      if (role !== "ADMIN") return;
       const n = (e && e.detail && Number(e.detail.count)) || 0;
       if (Number.isFinite(n) && n > 0) {
-        setNewReqCount((prev) => Math.max(prev, n));
+        setNewReqCount((prev) => prev + n);
       }
     };
     window.addEventListener("new-requests", handler);
     return () => window.removeEventListener("new-requests", handler);
-  }, []);
+  }, [role]);
 
+  // shake effect when newReqCount increments
+  useEffect(() => {
+    if (newReqCount > 0) {
+      setShake(true);
+      const t = setTimeout(() => setShake(false), 820);
+      return () => clearTimeout(t);
+    }
+    return undefined;
+  }, [newReqCount]);
+
+  // When user clicks requests link, clear badge (existing behavior)
   const onRequestsClick = () => {
     setNewReqCount(0);
   };
 
+  // helper: fetch current pending/cancel requests (on-demand)
+  const fetchPendingAndCancels = async () => {
+    setLoadingRequests(true);
+    try {
+      const res = await api.get("/seminars");
+      const all = Array.isArray(res?.data) ? res.data : (res?.data?.seminars || []);
+      const normalized = (all || []).map((s) => ({
+        id: s._id ?? s.id ?? s._key ?? null,
+        hallName: s.hallName || s.hall || (s.hallObj && (s.hallObj.name || s.hallObj.title)) || "",
+        title: s.slotTitle || s.title || s.name || s.bookingName || "Untitled",
+        department: s.department || s.dept || "",
+        date: s.date || s.startDate || null,
+        startTime: s.startTime || s.start_time || s.from || "",
+        endTime: s.endTime || s.end_time || s.to || "",
+        status: (s.status || "").toString().toUpperCase(),
+        raw: s,
+      }));
+
+      // filter PENDING and CANCEL_REQUESTED
+      const interesting = normalized.filter((n) => ["PENDING", "CANCEL_REQUESTED"].includes(n.status));
+      // sort newest first by date/appliedAt fallback
+      interesting.sort((a, b) => {
+        const da = new Date(a.date || 0).getTime() || 0;
+        const db = new Date(b.date || 0).getTime() || 0;
+        return db - da;
+      });
+
+      setRequestsList(interesting);
+    } catch (err) {
+      console.error("Navbar: failed to fetch requests", err);
+      notify && notify("Failed to fetch requests", "error", 3000);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  // When notification dropdown opens, fetch items
+  useEffect(() => {
+    if (notifOpen) {
+      // clear badge (user is checking)
+      setNewReqCount(0);
+      fetchPendingAndCancels();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notifOpen]);
+
+  /* ======= Action handlers shown in dropdown ======= */
+  const handleApprove = async (item) => {
+    if (!item?.id) return;
+    try {
+      await api.put(`/seminars/${encodeURIComponent(item.id)}`, { status: "APPROVED" });
+      notify("Request approved", "success", 2000);
+      setRequestsList((prev) => prev.filter((p) => p.id !== item.id));
+    } catch (err) {
+      console.error("approve error", err);
+      notify(err?.response?.data?.message || "Failed to approve", "error", 3500);
+    }
+  };
+
+  const handleReject = async (item) => {
+    if (!item?.id) return;
+    const remark = window.prompt("Enter rejection reason (will be saved):", "Rejected by Admin");
+    if (remark === null) return;
+    try {
+      await api.put(`/seminars/${encodeURIComponent(item.id)}`, { status: "REJECTED", remarks: remark });
+      notify("Request rejected", "success", 2000);
+      setRequestsList((prev) => prev.filter((p) => p.id !== item.id));
+    } catch (err) {
+      console.error("reject error", err);
+      notify(err?.response?.data?.message || "Failed to reject", "error", 3500);
+    }
+  };
+
+  const handleConfirmCancel = async (item) => {
+    if (!item?.id) return;
+    try {
+      await api.put(`/seminars/${encodeURIComponent(item.id)}`, { status: "CANCELLED", remarks: "Cancel confirmed by Admin" });
+      notify("Cancellation confirmed", "success", 2000);
+      setRequestsList((prev) => prev.filter((p) => p.id !== item.id));
+    } catch (err) {
+      console.error("confirm cancel error", err);
+      notify(err?.response?.data?.message || "Failed to confirm cancel", "error", 3500);
+    }
+  };
+
+  const handleRejectCancel = async (item) => {
+    if (!item?.id) return;
+    try {
+      await api.put(`/seminars/${encodeURIComponent(item.id)}`, { status: "APPROVED", remarks: "Cancel rejected by Admin" });
+      notify("Cancellation rejected", "success", 2000);
+      setRequestsList((prev) => prev.filter((p) => p.id !== item.id));
+    } catch (err) {
+      console.error("reject cancel error", err);
+      notify(err?.response?.data?.message || "Failed to reject cancel", "error", 3500);
+    }
+  };
+
+  /* helper to go to requests page for full view */
+  const goToRequestsPage = (item) => {
+    setNotifOpen(false);
+    navigate("/admin/requests", { state: { highlightId: item?.id } });
+  };
+
+  /* small UI helpers */
+  const truncate = (s, n = 40) => (s && s.length > n ? `${s.slice(0, n - 1)}…` : s || "—");
+
+  /* refs for notif popup click outside */
+  const notifWrapRef = useRef(null);
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (notifOpen && notifWrapRef.current && !notifWrapRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
+    };
+    if (notifOpen) document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [notifOpen]);
+
+  /* render */
   return (
     <>
+      <style>{`
+        /* shake animation for bell when new notifications arrive */
+        @keyframes bellShake {
+          0% { transform: translateX(0) rotate(0deg); }
+          20% { transform: translateX(-2px) rotate(-8deg); }
+          40% { transform: translateX(2px) rotate(8deg); }
+          60% { transform: translateX(-1px) rotate(-4deg); }
+          80% { transform: translateX(1px) rotate(4deg); }
+          100% { transform: translateX(0) rotate(0deg); }
+        }
+        .notif-bell.shake {
+          animation: bellShake 820ms ease;
+        }
+        /* red dot badge */
+        .nav-red-dot {
+          position: absolute;
+          right: -4px;
+          top: -4px;
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          background: linear-gradient(90deg,#ef4444,#f97316);
+          box-shadow: 0 0 0 3px rgba(249,115,22,0.08);
+        }
+      `}</style>
+
       <header className="w-full fixed top-0 left-0 z-50 h-16">
-        {/* stronger glass on header: increased blur + slightly more opaque bg for light mode */}
         <div className="w-full h-full backdrop-blur-xl bg-white/55 border-b border-white/20 shadow-sm dark:bg-black/30 dark:border-white/6">
           <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-6 h-full">
             {/* Left: brand + mobile control */}
@@ -213,11 +383,7 @@ export default function Navbar({ user = {}, handleLogout }) {
 
             {/* Middle: inline links */}
             <div className="flex-1 px-4" style={{ minWidth: 0 }}>
-              <nav
-                ref={navContainerRef}
-                className="flex items-center gap-2 whitespace-nowrap"
-                aria-label="Primary navigation"
-              >
+              <nav ref={navContainerRef} className="flex items-center gap-2 whitespace-nowrap" aria-label="Primary navigation">
                 {!isMobile &&
                   visibleLinks.map((l) => {
                     const isRequests = l.to === "/admin/requests" || l.label === "Requests";
@@ -238,9 +404,7 @@ export default function Navbar({ user = {}, handleLogout }) {
                           {l.label}
                         </NavLink>
 
-                        {isRequests && newReqCount > 0 && (
-                          <span className="nav-red-dot" aria-hidden />
-                        )}
+                        {isRequests && newReqCount > 0 && <span className="nav-red-dot" aria-hidden />}
                       </div>
                     );
                   })}
@@ -304,8 +468,77 @@ export default function Navbar({ user = {}, handleLogout }) {
               </div>
             </div>
 
-            {/* Right: user pill + logout + theme toggle */}
+            {/* Right: notifications (ADMIN only), user pill + theme toggle */}
             <div className="flex items-center gap-3">
+              {/* Notification bell (ADMIN only) */}
+              {role === "ADMIN" && (
+                <div className="relative" ref={notifWrapRef}>
+                  <button
+                    title="Notifications"
+                    onClick={() => setNotifOpen((s) => !s)}
+                    className={`notif-bell ${shake ? "shake" : ""} relative p-2 rounded-md hover:bg-slate-100 dark:hover:bg-white/6`}
+                    aria-expanded={notifOpen}
+                  >
+                    <svg className={`w-6 h-6 ${newReqCount > 0 ? "text-orange-500" : "text-slate-600 dark:text-slate-200"}`} viewBox="0 0 24 24" fill="none">
+                      <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118.6 14.6V11a6 6 0 10-12 0v3.6c0 .538-.214 1.055-.595 1.445L4 17h5m6 0a3 3 0 11-6 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    {newReqCount > 0 && <span className="nav-red-dot" aria-hidden />}
+                  </button>
+
+                  {/* Notification dropdown */}
+                  {notifOpen && (
+                    <div className="absolute right-0 mt-2 w-[360px] max-w-[92vw] bg-white/95 backdrop-blur-md border border-slate-200 rounded-lg shadow-lg z-50 dark:bg-black/80 dark:border-white/6 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-semibold">Recent Requests</div>
+                        <div className="text-xs text-slate-500">{loadingRequests ? "Loading..." : `${requestsList.length} shown`}</div>
+                      </div>
+
+                      <div style={{ maxHeight: "46vh", overflowY: "auto", paddingRight: 6 }}>
+                        {requestsList.length === 0 && !loadingRequests && (
+                          <div className="text-sm text-slate-500 py-6 text-center">No pending requests</div>
+                        )}
+
+                        {requestsList.map((it) => {
+                          const isCancel = (it.status || "").toUpperCase() === "CANCEL_REQUESTED";
+                          return (
+                            <div key={it.id} className="p-2 rounded-md hover:bg-slate-50 dark:hover:bg-white/5 flex gap-3 items-start">
+                              <div className="w-2.5 h-2.5 rounded-full mt-1" style={{ background: isCancel ? "#f97316" : "#06b6d4" }} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <div className="font-medium text-sm truncate">{truncate(it.title, 60)}</div>
+                                  <div className="text-xs text-slate-500">{(it.date || "").split("T")[0]}</div>
+                                </div>
+                                <div className="text-xs text-slate-500 mt-1 truncate">{truncate(`${it.hallName || "—"} • ${it.department || "—"}`, 60)}</div>
+
+                                <div className="mt-2 flex gap-2">
+                                  {isCancel ? (
+                                    <>
+                                      <button onClick={() => handleConfirmCancel(it)} className="px-2 py-1 text-xs rounded-md bg-green-600 text-white">Confirm Cancel</button>
+                                      <button onClick={() => handleRejectCancel(it)} className="px-2 py-1 text-xs rounded-md bg-red-600 text-white">Reject Cancel</button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button onClick={() => handleApprove(it)} className="px-2 py-1 text-xs rounded-md bg-green-600 text-white">Approve</button>
+                                      <button onClick={() => handleReject(it)} className="px-2 py-1 text-xs rounded-md bg-red-600 text-white">Reject</button>
+                                    </>
+                                  )}
+
+                                  <button onClick={() => goToRequestsPage(it)} className="px-2 py-1 text-xs rounded-md bg-white border text-slate-700">More</button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-3 text-right">
+                        <button onClick={() => { setNotifOpen(false); navigate("/admin/requests"); }} className="text-sm text-blue-600 hover:underline">Open Requests Page</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Desktop user pill */}
               {!isMobile ? (
                 <div className="relative" ref={userWrapRef}>
@@ -324,10 +557,11 @@ export default function Navbar({ user = {}, handleLogout }) {
                   </button>
 
                   {userOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white/95 backdrop-blur-md border border-slate-200 rounded-lg shadow-lg z-50 dark:bg-black/80">
+                    <div className="absolute right-0 mt-2 w-56 bg-white/95 backdrop-blur-md border border-slate-200 rounded-lg shadow-lg z-50 dark:bg-black/80">
                       <div className="px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
                         <div className="font-semibold">{user?.name || "User"}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">{user?.email || ""}</div>
+                        {/* fix overflow by truncating and showing full email on hover (title attr) */}
+                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate" title={user?.email || ""}>{user?.email || ""}</div>
                       </div>
                       <div className="border-t border-slate-100" />
                       <AnimatedButton
@@ -348,23 +582,18 @@ export default function Navbar({ user = {}, handleLogout }) {
                 </AnimatedButton>
               )}
 
-              {/* Desktop Theme toggle (hidden on mobile) */}
-              {!isMobile ? (
-                <ThemeToggle />
-              ) : null}
-
-              {/* Desktop logout duplicate removed (keeps exactly your earlier layout) */}
+              {/* Desktop Theme toggle */}
+              {!isMobile ? <ThemeToggle /> : null}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Mobile drawer overlay + panel */}
+      {/* Mobile drawer overlay + panel (kept as your original) */}
       <div
         className={`fixed inset-0 z-40 transition-opacity duration-300 ${drawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={() => setDrawerOpen(false)}
       >
-        {/* stronger backdrop blur for better contrast */}
         <div className="absolute inset-0 bg-black/40 backdrop-blur-md" />
 
         <div
@@ -386,13 +615,9 @@ export default function Navbar({ user = {}, handleLogout }) {
               </div>
             </div>
 
-            {/* Mobile Theme toggle + close button */}
             <div className="flex items-center gap-2">
-              <div className="mr-2">
-                <ThemeToggle />
-              </div>
+              <div className="mr-2"><ThemeToggle /></div>
 
-              {/* FIX: explicit light/dark color + hover so X is always visible */}
               <button
                 className="text-2xl text-slate-700 dark:text-slate-200 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-white/6 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 onClick={() => setDrawerOpen(false)}
