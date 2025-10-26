@@ -3,10 +3,10 @@ module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}"
   ],
+  darkMode: 'class', // ✅ Important for .dark theme toggle to work
   theme: {
     extend: {
       colors: {
-        // iOS-26 inspired tokens (use like text-ios-cyan/50 via rgb with alpha in utilities)
         "ios-cyan": "57 175 255",
         "ios-violet": "106 92 255",
         "ios-mint": "90 220 170",

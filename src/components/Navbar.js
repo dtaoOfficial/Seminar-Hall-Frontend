@@ -101,7 +101,7 @@ export default function Navbar({ user = {}, handleLogout }) {
     let raf = null;
     const doMeasure = () => {
       if (typeof window === "undefined") return;
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(window.innerWidth < 768); // <-- Fix 6: Already implemented here
 
       try {
         const v = computeVisibleCount();
@@ -178,31 +178,50 @@ export default function Navbar({ user = {}, handleLogout }) {
   const visibleLinks = LINKS.slice(0, effectiveVisibleCount);
   const hiddenLinks = LINKS.slice(effectiveVisibleCount);
 
-  /* ======= Real-time handling: listen to custom event 'new-requests' =======
-     NOTE: only admin should show badge/receive bell behavior. We respect that here.
-  */
+  /* ======= Fix 4: Real-time polling ======= */
   useEffect(() => {
-    const handler = (e) => {
-      // only admin sees notifications/bell
-      if (role !== "ADMIN") return;
-      const n = (e && e.detail && Number(e.detail.count)) || 0;
-      if (Number.isFinite(n) && n > 0) {
-        setNewReqCount((prev) => prev + n);
+    if (role !== "ADMIN") return; // Only admin polls
+
+    let lastKnownCount = -1; // Use local var to track count, -1 to force first update
+
+    const poll = async () => {
+      try {
+        const res = await api.get("/seminars");
+        const all = Array.isArray(res?.data) ? res.data : (res?.data?.seminars || []);
+        const pending = all.filter((s) =>
+          ["PENDING", "CANCEL_REQUESTED"].includes((s.status || "").toUpperCase())
+        );
+        
+        if (lastKnownCount === -1) {
+          lastKnownCount = pending.length; // Initialize
+        } else if (pending.length > lastKnownCount) {
+          // New request arrived!
+          setShake(true); // Trigger shake
+        }
+        
+        lastKnownCount = pending.length;
+        setNewReqCount(pending.length); // Update count
+
+      } catch (err) {
+        console.warn("Navbar polling failed:", err.message);
       }
     };
-    window.addEventListener("new-requests", handler);
-    return () => window.removeEventListener("new-requests", handler);
-  }, [role]);
 
-  // shake effect when newReqCount increments
+    poll(); // Run once on mount
+    const interval = setInterval(poll, 1000); // Poll every 1 second
+    
+    return () => clearInterval(interval); // Cleanup
+  }, [role]); // Only depends on role
+
+  /* ======= Fix 5: Shake animation reset ======= */
+  // This effect resets the shake animation after it plays
   useEffect(() => {
-    if (newReqCount > 0) {
-      setShake(true);
-      const t = setTimeout(() => setShake(false), 820);
+    if (shake) { // When shake is set to true
+      const t = setTimeout(() => setShake(false), 820); // Reset it after animation
       return () => clearTimeout(t);
     }
     return undefined;
-  }, [newReqCount]);
+  }, [shake]); // Only depends on shake state
 
   // When user clicks requests link, clear badge (existing behavior)
   const onRequestsClick = () => {
@@ -331,23 +350,24 @@ export default function Navbar({ user = {}, handleLogout }) {
   return (
     <>
       <style>{`
-        /* shake animation for bell when new notifications arrive */
+        /* Fix 9: Smooth Bell Animation */
         @keyframes bellShake {
-          0% { transform: translateX(0) rotate(0deg); }
-          20% { transform: translateX(-2px) rotate(-8deg); }
-          40% { transform: translateX(2px) rotate(8deg); }
-          60% { transform: translateX(-1px) rotate(-4deg); }
-          80% { transform: translateX(1px) rotate(4deg); }
-          100% { transform: translateX(0) rotate(0deg); }
+          0% { transform: rotate(0deg); }
+          20% { transform: rotate(-10deg); }
+          40% { transform: rotate(10deg); }
+          60% { transform: rotate(-6deg); }
+          80% { transform: rotate(6deg); }
+          100% { transform: rotate(0deg); }
         }
         .notif-bell.shake {
           animation: bellShake 820ms ease;
         }
-        /* red dot badge */
+        
+        /* Fix 7: Red Dot Position */
         .nav-red-dot {
           position: absolute;
-          right: -4px;
-          top: -4px;
+          right: -3px;
+          top: -3px;
           width: 10px;
           height: 10px;
           border-radius: 999px;
@@ -357,7 +377,8 @@ export default function Navbar({ user = {}, handleLogout }) {
       `}</style>
 
       <header className="w-full fixed top-0 left-0 z-50 h-16">
-        <div className="w-full h-full backdrop-blur-xl bg-white/55 border-b border-white/20 shadow-sm dark:bg-black/30 dark:border-white/6">
+        {/* Fix 8: Background Transparency */}
+        <div className="w-full h-full backdrop-blur-xl bg-white/60 border-b border-white/20 shadow-sm dark:bg-black/40 dark:border-white/6">
           <div className="max-w-7xl mx-auto flex items-center justify-between px-4 md:px-6 h-full">
             {/* Left: brand + mobile control */}
             <div className="flex items-center gap-3">
@@ -377,7 +398,7 @@ export default function Navbar({ user = {}, handleLogout }) {
                   alt="NHCE"
                   className="h-10 w-auto object-contain"
                 />
-                <span className="ml-2 font-semibold text-slate-900 dark:text-slate-100 text-lg">NHCE Seminars</span>
+                {/* Fix 1: Removed "NHCE Seminars" text span */}
               </div>
             </div>
 
@@ -469,14 +490,17 @@ export default function Navbar({ user = {}, handleLogout }) {
             </div>
 
             {/* Right: notifications (ADMIN only), user pill + theme toggle */}
-            <div className="flex items-center gap-3">
+            {/* Fix 3: Updated gap for mobile responsiveness */}
+            <div className="flex items-center gap-2 md:gap-3">
               {/* Notification bell (ADMIN only) */}
               {role === "ADMIN" && (
-                <div className="relative" ref={notifWrapRef}>
+                // Fix 2: Added flex items-center justify-center
+                <div className="relative flex items-center justify-center" ref={notifWrapRef}>
                   <button
                     title="Notifications"
                     onClick={() => setNotifOpen((s) => !s)}
-                    className={`notif-bell ${shake ? "shake" : ""} relative p-2 rounded-md hover:bg-slate-100 dark:hover:bg-white/6`}
+                    // Fix 2: Updated hover class
+                    className={`notif-bell ${shake ? "shake" : ""} relative p-2 rounded-md hover:bg-slate-100 dark:hover:bg-white/10`}
                     aria-expanded={notifOpen}
                   >
                     <svg className={`w-6 h-6 ${newReqCount > 0 ? "text-orange-500" : "text-slate-600 dark:text-slate-200"}`} viewBox="0 0 24 24" fill="none">
@@ -487,7 +511,13 @@ export default function Navbar({ user = {}, handleLogout }) {
 
                   {/* Notification dropdown */}
                   {notifOpen && (
-                    <div className="absolute right-0 mt-2 w-[360px] max-w-[92vw] bg-white/95 backdrop-blur-md border border-slate-200 rounded-lg shadow-lg z-50 dark:bg-black/80 dark:border-white/6 p-3">
+                    /* ===== FIX: Mobile positioning (center, smaller) + Desktop (right-aligned) ===== */
+                    <div
+                      className={`absolute top-full mt-2 
+                      ${isMobile ? "left-1/2 -translate-x-1/2 w-[260px]" : "right-0 w-[320px]"} 
+                      max-w-[90vw] bg-white/95 backdrop-blur-md border border-slate-200 rounded-lg shadow-lg z-50
+                      dark:bg-black/80 dark:border-white/6 p-2 md:p-3 transition-all duration-300`}
+                    >
                       <div className="flex items-center justify-between mb-2">
                         <div className="font-semibold">Recent Requests</div>
                         <div className="text-xs text-slate-500">{loadingRequests ? "Loading..." : `${requestsList.length} shown`}</div>
@@ -501,29 +531,31 @@ export default function Navbar({ user = {}, handleLogout }) {
                         {requestsList.map((it) => {
                           const isCancel = (it.status || "").toUpperCase() === "CANCEL_REQUESTED";
                           return (
-                            <div key={it.id} className="p-2 rounded-md hover:bg-slate-50 dark:hover:bg-white/5 flex gap-3 items-start">
+                            /* ===== FIX: Smaller padding and gap ===== */
+                            <div key={it.id} className="p-1.5 md:p-2 rounded-md hover:bg-slate-50 dark:hover:bg-white/5 flex gap-2 md:gap-3 items-start">
                               <div className="w-2.5 h-2.5 rounded-full mt-1" style={{ background: isCancel ? "#f97316" : "#06b6d4" }} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between">
-                                  <div className="font-medium text-sm truncate">{truncate(it.title, 60)}</div>
+                                  <div className="font-medium text-sm truncate">{truncate(it.title, 40)}</div>
                                   <div className="text-xs text-slate-500">{(it.date || "").split("T")[0]}</div>
                                 </div>
-                                <div className="text-xs text-slate-500 mt-1 truncate">{truncate(`${it.hallName || "—"} • ${it.department || "—"}`, 60)}</div>
+                                <div className="text-xs text-slate-500 mt-1 truncate">{truncate(`${it.hallName || "—"} • ${it.department || "—"}`, 40)}</div>
 
-                                <div className="mt-2 flex gap-2">
+                                {/* ===== FIX: Smaller buttons and gap ===== */ }
+                                <div className="mt-2 flex flex-wrap gap-1.5 md:gap-2">
                                   {isCancel ? (
                                     <>
-                                      <button onClick={() => handleConfirmCancel(it)} className="px-2 py-1 text-xs rounded-md bg-green-600 text-white">Confirm Cancel</button>
-                                      <button onClick={() => handleRejectCancel(it)} className="px-2 py-1 text-xs rounded-md bg-red-600 text-white">Reject Cancel</button>
+                                      <button onClick={() => handleConfirmCancel(it)} className="px-1.5 py-0.5 md:px-2 md:py-1 text-[10px] md:text-xs rounded-md bg-green-600 text-white">Confirm</button>
+                                      <button onClick={() => handleRejectCancel(it)} className="px-1.5 py-0.5 md:px-2 md:py-1 text-[10px] md:text-xs rounded-md bg-red-600 text-white">Reject</button>
                                     </>
                                   ) : (
                                     <>
-                                      <button onClick={() => handleApprove(it)} className="px-2 py-1 text-xs rounded-md bg-green-600 text-white">Approve</button>
-                                      <button onClick={() => handleReject(it)} className="px-2 py-1 text-xs rounded-md bg-red-600 text-white">Reject</button>
+                                      <button onClick={() => handleApprove(it)} className="px-1.5 py-0.5 md:px-2 md:py-1 text-[10px] md:text-xs rounded-md bg-green-600 text-white">Approve</button>
+                                      <button onClick={() => handleReject(it)} className="px-1.5 py-0.5 md:px-2 md:py-1 text-[10px] md:text-xs rounded-md bg-red-600 text-white">Reject</button>
                                     </>
                                   )}
 
-                                  <button onClick={() => goToRequestsPage(it)} className="px-2 py-1 text-xs rounded-md bg-white border text-slate-700">More</button>
+                                  <button onClick={() => goToRequestsPage(it)} className="px-1.5 py-0.5 md:px-2 md:py-1 text-[10px] md:text-xs rounded-md bg-white border text-slate-700">More</button>
                                 </div>
                               </div>
                             </div>
@@ -539,7 +571,10 @@ export default function Navbar({ user = {}, handleLogout }) {
                 </div>
               )}
 
-              {/* Desktop user pill */}
+              {/* Fix 3: Theme toggle now visible on mobile */}
+              <ThemeToggle />
+
+              {/* Desktop user pill / Mobile logout button */}
               {!isMobile ? (
                 <div className="relative" ref={userWrapRef}>
                   <button
@@ -581,15 +616,12 @@ export default function Navbar({ user = {}, handleLogout }) {
                   Logout
                 </AnimatedButton>
               )}
-
-              {/* Desktop Theme toggle */}
-              {!isMobile ? <ThemeToggle /> : null}
             </div>
           </div>
         </div>
       </header>
 
-      {/* Mobile drawer overlay + panel (kept as your original) */}
+      {/* Mobile drawer overlay + panel (unchanged) */}
       <div
         className={`fixed inset-0 z-40 transition-opacity duration-300 ${drawerOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={() => setDrawerOpen(false)}

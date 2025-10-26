@@ -1,4 +1,5 @@
 // src/components/AdminDashboard.js
+// NOTE: Dtao theme colors are derived from :root.dark variables in GlobalStyles.js
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
@@ -189,7 +190,16 @@ const AdminDashboard = ({ user, setUser }) => {
               type: st === "PENDING" ? "Booking Request" : "Cancel Request",
             };
           });
-        setRequestsFeed(feed);
+        
+        // Fix 7: Use functional update with shallow compare to prevent re-renders
+        setRequestsFeed((prevFeed) => {
+          const newFeedStr = JSON.stringify(feed);
+          if (newFeedStr !== JSON.stringify(prevFeed)) {
+            return feed;
+          }
+          return prevFeed;
+        });
+
       } catch (err) {
         // ignore
       } finally {
@@ -281,14 +291,16 @@ const AdminDashboard = ({ user, setUser }) => {
                         <div className="ticker-play">
                           <div className="ticker-inner">
                             {requestsFeed.map((it, idx) => (
-                              <span key={`a-${it.id || idx}`} className="text-sm">
+                              // Fix 5: Ticker text color
+                              <span key={`a-${it.id || idx}`} className={`text-sm ${isDtao ? "text-violet-300" : "text-slate-700"}`}>
                                 <strong>{it.type}:</strong> {it.title} — <em>{it.hall}</em> ({it.date})
                               </span>
                             ))}
                           </div>
                           <div className="ticker-inner" aria-hidden>
                             {requestsFeed.map((it, idx) => (
-                              <span key={`b-${it.id || idx}`} className="text-sm">
+                              // Fix 5: Ticker text color
+                              <span key={`b-${it.id || idx}`} className={`text-sm ${isDtao ? "text-violet-300" : "text-slate-700"}`}>
                                 <strong>{it.type}:</strong> {it.title} — <em>{it.hall}</em> ({it.date})
                               </span>
                             ))}
@@ -306,7 +318,8 @@ const AdminDashboard = ({ user, setUser }) => {
                   {Object.entries(summaryCounts).map(([key, val]) => (
                     <div
                       key={key}
-                      className={`rounded-xl p-4 text-center transform transition hover:-translate-y-1 ${isDtao ? "bg-black/40 border border-violet-800 shadow-lg" : "bg-white shadow"}`}
+                      // DROPDOWN BUG FIX: Removed 'transform' and 'hover:-translate-y-1'
+                      className={`rounded-xl p-4 text-center transition-all transition-colors duration-700 ${isDtao ? "bg-black/40 border border-violet-800 shadow-lg" : "bg-white shadow"}`}
                     >
                       <p className={`${isDtao ? "text-slate-300" : "text-gray-600"} font-medium`}>
                         {key.charAt(0).toUpperCase() + key.slice(1)}
@@ -318,8 +331,13 @@ const AdminDashboard = ({ user, setUser }) => {
 
                 {/* MAIN GRID: Left — Hall/Date panel | Right — Recent Seminars */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                  {/* LEFT: Hall & Day panel */}
-                  <div className={`${isDtao ? "bg-black/50 border border-violet-900 text-slate-100" : "bg-white"} rounded-xl p-6 shadow`}>
+                  
+                  {/* LEFT: Hall & Day panel
+                    DROPDOWN/CALENDAR BUG FIX: Added 'isolation-isolate' 
+                    This creates a new stacking context, which stops the ticker's 'transform' 
+                    animation from messing up the position of native popups (select/date).
+                  */}
+                  <div className={`${isDtao ? "bg-black/50 border border-violet-900 text-slate-100" : "bg-white"} rounded-xl p-6 shadow transition-colors duration-700 isolation-isolate`}>
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <h3 className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-lg font-semibold`}>Hall — Day View</h3>
@@ -329,7 +347,14 @@ const AdminDashboard = ({ user, setUser }) => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center mb-4">
                       <select
-                        className="rounded-md border px-3 py-2 col-span-1 sm:col-span-2"
+                        // Fix 4: Inline style for dark mode options
+                        style={isDtao ? { backgroundColor: "#0b0b10", color: "#f3e8ff" } : {}}
+                        // Fix 1: Conditional classes for Dtao theme
+                        className={`rounded-md border px-3 py-2 col-span-1 sm:col-span-2 transition ${
+                          isDtao
+                            ? "bg-black/60 text-slate-100 border-violet-800 focus:border-violet-500"
+                            : "bg-white text-gray-800 border-gray-300 focus:border-blue-500"
+                        }`}
                         value={selectedHall}
                         onChange={(e) => setSelectedHall(e.target.value)}
                       >
@@ -341,26 +366,38 @@ const AdminDashboard = ({ user, setUser }) => {
 
                       <input
                         type="date"
-                        className="rounded-md border px-3 py-2"
+                        // Fix 1: Conditional classes for Dtao theme
+                        className={`rounded-md border px-3 py-2 transition ${
+                          isDtao
+                            ? "bg-black/60 text-slate-100 border-violet-800 focus:border-violet-500"
+                            : "bg-white text-gray-800 border-gray-300 focus:border-blue-500"
+                        }`}
                         value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
                       />
                     </div>
 
-                    <div className="border border-dashed rounded-lg p-4 min-h-[120px]">
+                    {/* Fix 2 & 3: Conditional classes and transitions */}
+                    <div className={`border border-dashed rounded-lg p-4 min-h-[120px] transition-colors duration-700 ${
+                      isDtao ? "bg-black/40 border-violet-800 text-slate-100" : "bg-gray-50 border-gray-200 text-gray-700"
+                    }`}>
                       {hallDayLoading ? (
-                        <div className="text-center text-sm text-gray-500">Loading…</div>
+                        // Fix 8: Centered loading indicator
+                        <div className="flex justify-center items-center text-sm text-gray-400 h-20">
+                          <span className="animate-pulse">Loading…</span>
+                        </div>
                       ) : hallDayBookings && hallDayBookings.length > 0 ? (
                         <ul className="space-y-2">
                           {hallDayBookings.map((b, i) => {
                             const n = normalizeSeminar(b);
                             return (
-                              <li key={n.id || i} className="p-2 rounded-md bg-gray-50 flex justify-between items-start">
+                              // Fix 2: Conditional styling for list items
+                              <li key={n.id || i} className={`p-2 rounded-md flex justify-between items-start ${isDtao ? "bg-black/20" : "bg-gray-50"}`}>
                                 <div className="min-w-0">
-                                  <div className="font-semibold text-sm text-slate-800">{n.slotTitle}</div>
-                                  <div className="text-xs text-slate-500">{n.bookingName}{n.department ? ` • ${n.department}` : ""}</div>
+                                  <div className={`font-semibold text-sm ${isDtao ? "text-slate-100" : "text-slate-800"}`}>{n.slotTitle}</div>
+                                  <div className={`text-xs ${isDtao ? "text-slate-400" : "text-slate-500"}`}>{n.bookingName}{n.department ? ` • ${n.department}` : ""}</div>
                                 </div>
-                                <div className="text-right text-xs text-slate-500">
+                                <div className={`text-right text-xs ${isDtao ? "text-slate-400" : "text-slate-500"}`}>
                                   {n.startTime && n.endTime ? `${n.startTime} — ${n.endTime}` : "Full day"}
                                 </div>
                               </li>
@@ -368,21 +405,24 @@ const AdminDashboard = ({ user, setUser }) => {
                           })}
                         </ul>
                       ) : (
-                        <div className="text-center text-sm text-gray-500">No bookings for this hall on selected date.</div>
+                        // Fix 2: Conditional text color
+                        <div className={`text-center text-sm ${isDtao ? "text-slate-400" : "text-gray-500"}`}>No bookings for this hall on selected date.</div>
                       )}
                     </div>
 
                     <div className="mt-4 flex gap-3">
                       <button
                         onClick={() => navigate("calendar")}
-                        className={`px-4 py-2 rounded-lg font-semibold transition transform duration-200 ${isDtao ? "bg-violet-600 hover:bg-violet-500 text-white shadow-sm" : "bg-blue-600 hover:bg-blue-700 text-white shadow"}`}
+                        // DROPDOWN BUG FIX: Removed 'transform' and 'hover:-translate-y-0.5'
+                        className={`px-4 py-2 rounded-lg font-semibold transition-all duration-500 ${isDtao ? "bg-violet-600 hover:bg-violet-500 text-white shadow-sm" : "bg-blue-600 hover:bg-blue-700 text-white shadow"}`}
                       >
                         Open Full Calendar
                       </button>
 
                       <button
                         onClick={() => notify && notify("Use full calendar to inspect day-wise bookings", "info", 2000)}
-                        className={`px-4 py-2 rounded-lg border transition duration-200 ${isDtao ? "border-violet-700 bg-transparent text-slate-100" : "border-gray-200 bg-white text-gray-800"}`}
+                        // DROPDOWN BUG FIX: Removed 'transform' and 'hover:-translate-y-0.5'
+                        className={`px-4 py-2 rounded-lg border transition-all duration-500 ${isDtao ? "border-violet-700 bg-transparent text-slate-100" : "border-gray-200 bg-white text-gray-800"}`}
                       >
                         Help
                       </button>
@@ -392,7 +432,8 @@ const AdminDashboard = ({ user, setUser }) => {
                   </div>
 
                   {/* RIGHT: Recent Seminars */}
-                  <aside className={`${isDtao ? "bg-black/50 border border-violet-900 text-slate-100" : "bg-white"} rounded-xl shadow p-4`}>
+                  {/* Fix 3: Added transitions */}
+                  <aside className={`${isDtao ? "bg-black/50 border border-violet-900 text-slate-100" : "bg-white"} rounded-xl shadow p-4 transition-colors duration-700`}>
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-lg font-semibold`}>Recent Seminars</h3>
@@ -409,7 +450,12 @@ const AdminDashboard = ({ user, setUser }) => {
                             { label: "Date", key: "date" },
                           ]}
                           filename="recent_seminars.csv"
-                          className={`${isDtao ? "px-3 py-1.5 rounded-md bg-violet-600 text-white text-sm font-semibold" : "px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-semibold"}`}
+                          // DROPDOWN BUG FIX: Removed 'transform' and 'hover:-translate-y-0.5'
+                          className={`px-3 py-1.5 rounded-md text-sm font-semibold transition-all duration-500 ${
+                            isDtao
+                              ? "bg-violet-600 hover:bg-violet-500 text-white shadow-sm"
+                              : "bg-blue-600 hover:bg-blue-700 text-white shadow"
+                          }`}
                         >
                           Export CSV
                         </CSVLink>
@@ -418,7 +464,10 @@ const AdminDashboard = ({ user, setUser }) => {
 
                     <div className="mt-4">
                       {loading ? (
-                        <div className={`${isDtao ? "text-slate-300" : "text-gray-500"} text-sm`}>Loading…</div>
+                        // Fix 8: Centered loading indicator
+                        <div className="flex justify-center items-center text-sm text-gray-400 h-20">
+                          <span className="animate-pulse">Loading…</span>
+                        </div>
                       ) : error ? (
                         <div className="text-sm text-rose-600">{error}</div>
                       ) : recentSeminars.length === 0 ? (
@@ -426,7 +475,10 @@ const AdminDashboard = ({ user, setUser }) => {
                       ) : (
                         <div className="space-y-3">
                           {recentSeminars.map((s, i) => (
-                            <div key={s.id ?? i} className={`${isDtao ? "bg-black/30 border border-violet-800" : "bg-gray-50"} rounded-lg shadow p-4 flex justify-between items-start transition hover:shadow-md`}>
+                            // Fix 2 & 3: Conditional card styling and transitions
+                            <div key={s.id ?? i} className={`rounded-lg shadow p-4 flex justify-between items-start transition-all transition-colors duration-700 hover:shadow-md ${
+                              isDtao ? "bg-black/40 border border-violet-800 text-slate-100" : "bg-white text-gray-800"
+                            }`}>
                               <div className="min-w-0">
                                 <div className={`${isDtao ? "text-violet-200" : "text-blue-700"} text-sm font-semibold truncate`}>{s.hallName}</div>
                                 <div className={`${isDtao ? "text-slate-100" : "text-gray-800"} text-sm`} >{s.slotTitle}</div>
@@ -436,7 +488,8 @@ const AdminDashboard = ({ user, setUser }) => {
                               <div className="text-right text-sm">
                                 <div className={`${isDtao ? "text-slate-300" : "text-gray-700"}`}>{safeDate(s.date)}</div>
                                 <div className="mt-2 flex gap-2 justify-end">
-                                  <button onClick={() => navigate("/admin/seminars")} className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-semibold">Details</button>
+                                  {/* DROPDOWN BUG FIX: Removed 'transform' and 'hover:-translate-y-0.5' */}
+                                  <button onClick={() => navigate("/admin/seminars")} className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-semibold transition-all duration-500">Details</button>
                                 </div>
                               </div>
                             </div>

@@ -15,11 +15,12 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     const root = document.documentElement;
     if (theme === "dtao") {
-      root.classList.add("dtao-mode");
+      // ✅ Updated: use .dark to match GlobalStyles + Tailwind dark mode
+      root.classList.add("dark");
       root.classList.remove("light-mode");
     } else {
+      root.classList.remove("dark");
       root.classList.add("light-mode");
-      root.classList.remove("dtao-mode");
     }
     localStorage.setItem("theme", theme);
   }, [theme]);

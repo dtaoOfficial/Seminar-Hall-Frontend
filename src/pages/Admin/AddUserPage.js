@@ -3,6 +3,21 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import api from "../../utils/api";
 import { useTheme } from "../../contexts/ThemeContext";
 
+// --- Eye icons (SVG) ---
+const EyeOpenIcon = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+
+const EyeClosedIcon = ({ className }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+  </svg>
+);
+// --- End Eye icons ---
+
 const fallbackDepts = [
   "CSE-1",
   "CSE-2",
@@ -18,14 +33,6 @@ const fallbackDepts = [
 ];
 
 /* ---------- Small accessible Dropdown (replaces native select) ---------- */
-/*
-  Props:
-    - options: array of { value: string, label?: string } or simple string[]
-    - value: current value (string)
-    - onChange: (v) => void
-    - className: extra classes for wrapper
-    - ariaLabel: label for button
-*/
 function Dropdown({ options = [], value, onChange, className = "", ariaLabel = "Select", placeholder = "" }) {
   const { theme } = useTheme() || {};
   const isDtao = theme === "dtao";
@@ -43,7 +50,6 @@ function Dropdown({ options = [], value, onChange, className = "", ariaLabel = "
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  // keyboard: Enter/Space toggles, Enter/Space on option selects
   const onKeyDownRoot = (e) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -115,6 +121,7 @@ const UserRegisterPage = () => {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // <-- 1. Added state
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [suggestions, setSuggestions] = useState([]);
@@ -128,7 +135,6 @@ const UserRegisterPage = () => {
   useEffect(() => {
     let mounted = true;
     const fetchDepts = async () => {
-      // NOTE: removed loadingDepts (was unused) — kept behavior same otherwise
       try {
         try {
           const res = await api.get("/departments");
@@ -141,9 +147,7 @@ const UserRegisterPage = () => {
             setDepartment((prev) => (prev && list.includes(prev) ? prev : list[0]));
             return;
           }
-        } catch (err) {
-          // ignore
-        }
+        } catch (err) { /* ignore */ }
 
         try {
           const resUsers = await api.get("/users");
@@ -162,9 +166,7 @@ const UserRegisterPage = () => {
             setDepartment((prev) => (prev && derived.includes(prev) ? prev : derived[0]));
             return;
           }
-        } catch (err) {
-          // ignore
-        }
+        } catch (err) { /* ignore */ }
 
         setDepartments(fallbackDepts);
         setDepartment((prev) => (prev && fallbackDepts.includes(prev) ? prev : fallbackDepts[0]));
@@ -176,21 +178,15 @@ const UserRegisterPage = () => {
     };
 
     fetchDepts();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {
     if (!error && !success) return;
-    const t = setTimeout(() => {
-      setError("");
-      setSuccess("");
-    }, 5000);
+    const t = setTimeout(() => { setError(""); setSuccess(""); }, 5000);
     return () => clearTimeout(t);
   }, [error, success]);
 
-  // when messages appear, scroll to them smoothly and focus for screen readers
   useEffect(() => {
     if (error || success) {
       if (messagesRef.current && messagesRef.current.scrollIntoView) {
@@ -200,7 +196,6 @@ const UserRegisterPage = () => {
     }
   }, [error, success]);
 
-  // when suggestions update, scroll them into view smoothly
   useEffect(() => {
     if (suggestions && suggestions.length > 0) {
       if (suggestionsRef.current && suggestionsRef.current.scrollIntoView) {
@@ -214,19 +209,7 @@ const UserRegisterPage = () => {
 
   const isValidPhone = (num) => {
     if (!/^[6-9][0-9]{9}$/.test(num)) return false;
-    const invalids = [
-      "1234567890",
-      "0987654321",
-      "1111111111",
-      "2222222222",
-      "3333333333",
-      "4444444444",
-      "5555555555",
-      "6666666666",
-      "7777777777",
-      "8888888888",
-      "9999999999",
-    ];
+    const invalids = ["1234567890", "0987654321", "1111111111", "2222222222", "3333333333", "4444444444", "5555555555", "6666666666", "7777777777", "8888888888", "9999999999"];
     return !invalids.includes(num);
   };
 
@@ -253,22 +236,10 @@ const UserRegisterPage = () => {
     const emailNorm = (email || "").trim().toLowerCase();
     const phoneTrim = (phone || "").trim();
 
-    if (!nameTrim) {
-      setError("Name is required");
-      return;
-    }
-    if (!isValidEmail(emailNorm)) {
-      setError("Email must end with @newhorizonindia.edu");
-      return;
-    }
-    if (!isValidPhone(phoneTrim)) {
-      setError("Phone must be 10 digits, start with 6/7/8/9 and not be trivial");
-      return;
-    }
-    if (!isMediumPassword(password)) {
-      setError("Password must be at least 6 chars and include letters & numbers");
-      return;
-    }
+    if (!nameTrim) { setError("Name is required"); return; }
+    if (!isValidEmail(emailNorm)) { setError("Email must end with @newhorizonindia.edu"); return; }
+    if (!isValidPhone(phoneTrim)) { setError("Phone must be 10 digits, start with 6/7/8/9 and not be trivial"); return; }
+    if (!isMediumPassword(password)) { setError("Password must be at least 6 chars and include letters & numbers"); return; }
 
     const payload = {
       name: nameTrim,
@@ -283,7 +254,6 @@ const UserRegisterPage = () => {
       setLoading(true);
       await api.post("/users", payload);
       setSuccess("User registered successfully!");
-      // reset form
       setRole("DEPARTMENT");
       setDepartment(departments && departments.length > 0 ? departments[0] : fallbackDepts[0]);
       setName("");
@@ -294,19 +264,12 @@ const UserRegisterPage = () => {
     } catch (err) {
       console.error("Error registering user:", err);
       const data = err?.response?.data;
-      let msg = "";
-      if (!data) {
-        msg = err?.message || "Failed to register. Try again.";
-      } else if (typeof data === "string") {
-        msg = data;
-      } else if (data?.error) {
-        msg = data.error;
-      } else if (data?.message) {
-        msg = data.message;
-      } else {
-        msg = JSON.stringify(data);
-      }
-      setError(msg ? msg : "Failed to register");
+      let msg = !data ? err?.message || "Failed to register. Try again."
+              : typeof data === "string" ? data
+              : data?.error ? data.error
+              : data?.message ? data.message
+              : JSON.stringify(data);
+      setError(msg || "Failed to register");
     } finally {
       setLoading(false);
     }
@@ -322,7 +285,6 @@ const UserRegisterPage = () => {
   const hintTextLight = "text-sm text-gray-500";
   const hintTextDark = "text-sm text-slate-300";
 
-  // options for role dropdown (keeps values same as before)
   const roleOptions = useCallback(() => ["ADMIN", "DEPARTMENT"], []);
   const deptOptions = useCallback(() => (departments.length ? departments : fallbackDepts), [departments]);
 
@@ -356,8 +318,6 @@ const UserRegisterPage = () => {
 
               <div>
                 <label htmlFor="role" className={`block text-sm font-medium ${isDtao ? "text-slate-200" : "text-gray-700"}`}>Role</label>
-
-                {/* custom dropdown (replaces native select) */}
                 <Dropdown
                   options={roleOptions()}
                   value={role}
@@ -373,8 +333,6 @@ const UserRegisterPage = () => {
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="department" className={`block text-sm font-medium ${isDtao ? "text-slate-200" : "text-gray-700"}`}>Department</label>
-
-                  {/* custom dropdown for departments */}
                   <Dropdown
                     options={deptOptions()}
                     value={department}
@@ -432,19 +390,36 @@ const UserRegisterPage = () => {
                 />
               </div>
 
-              <div>
+              {/* === Password Field with Show/Hide === */}
+              <div className="relative">
                 <label htmlFor="password" className={`block text-sm font-medium ${isDtao ? "text-slate-200" : "text-gray-700"}`}>Password</label>
                 <input
                   id="password"
                   autoComplete="new-password"
-                  type="password"
+                  // 2. Change type based on state
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
                   required
-                  className={`${inputBaseClasses} ${isDtao ? darkInput : lightInput}`}
+                  // Added pr-10 for padding-right to make space for the button
+                  className={`${inputBaseClasses} ${isDtao ? darkInput : lightInput} pr-10`}
                 />
+                {/* 3. Added Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className={`absolute inset-y-0 right-0 top-6 pr-3 flex items-center text-sm leading-5 ${isDtao ? 'text-slate-400 hover:text-slate-200' : 'text-gray-500 hover:text-gray-700'}`}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOpenIcon className="h-5 w-5" />
+                  ) : (
+                    <EyeClosedIcon className="h-5 w-5" />
+                  )}
+                </button>
               </div>
+              {/* === End Password Field === */}
             </div>
 
             {/* actions */}
