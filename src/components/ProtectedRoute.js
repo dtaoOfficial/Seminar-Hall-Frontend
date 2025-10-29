@@ -4,45 +4,43 @@ import { Navigate } from "react-router-dom";
 import AuthService from "../utils/AuthService";
 
 /**
- * Protects routes by role and authentication.
- *
- * Props:
- *  - requiredRole: "ADMIN" or "DEPARTMENT" (string). If omitted, just requires login.
- *  - children: component to render if allowed
+ * ✅ Enhanced ProtectedRoute
+ * - Works with admin_token / dept_token logic
+ * - Prevents mixing sessions
+ * - Redirects by correct role
  */
 export default function ProtectedRoute({ requiredRole, children }) {
-  const user = AuthService.getCurrentUser();
-  const role = AuthService.getRole();
-  const isAuth = AuthService.isAuthenticated();
+  const session = AuthService.autoLogin();
 
-  if (!isAuth || !user) {
-    // not logged in
+  // 🚫 No active session
+  if (!session?.token) {
     return <Navigate to="/" replace />;
   }
 
-  if (requiredRole) {
-    const normalizedRole = role || (user.role || "DEPARTMENT").toUpperCase();
+  const { role } = session;
 
-    // Admin required but user isn't admin -> redirect to dept
-    if (requiredRole.toUpperCase() === "ADMIN" && normalizedRole !== "ADMIN") {
+  // ✅ If a role is required, check it
+  if (requiredRole) {
+    const normalizedRequired = requiredRole.toUpperCase();
+
+    // ❌ If the role doesn’t match, redirect accordingly
+    if (normalizedRequired === "ADMIN" && role !== "ADMIN") {
       return <Navigate to="/dept" replace />;
     }
 
-    // Department required but user is admin -> redirect admin to admin
-    if (requiredRole.toUpperCase() === "DEPARTMENT" && normalizedRole === "ADMIN") {
+    if (normalizedRequired === "DEPARTMENT" && role === "ADMIN") {
       return <Navigate to="/admin" replace />;
     }
 
-    // Department required and user isn't department/admin -> go to login
     if (
-      requiredRole.toUpperCase() === "DEPARTMENT" &&
-      normalizedRole !== "DEPARTMENT" &&
-      normalizedRole !== "ADMIN"
+      normalizedRequired === "DEPARTMENT" &&
+      role !== "DEPARTMENT" &&
+      role !== "ADMIN"
     ) {
       return <Navigate to="/" replace />;
     }
   }
 
-  // ✅ allowed
+  // ✅ Session valid and role allowed
   return children;
 }

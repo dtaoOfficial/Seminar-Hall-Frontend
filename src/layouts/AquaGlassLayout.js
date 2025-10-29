@@ -5,7 +5,8 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import GlobalStyles from "../styles/GlobalStyles";
 import { useTheme } from "../contexts/ThemeContext";
-import useScrollReveal from "../hooks/useScrollReveal"; // ← added
+import useScrollReveal from "../hooks/useScrollReveal";
+import AuthService from "../utils/AuthService"; // ✅ added import
 
 export default function AquaGlassLayout({ children, user, setUser }) {
   const { theme } = useTheme() || {};
@@ -25,11 +26,27 @@ export default function AquaGlassLayout({ children, user, setUser }) {
   // enable reveal animations site-wide (called once in layout)
   useScrollReveal();
 
+  /** ✅ Improved logout: clears only current role session **/
   const handleLogout = () => {
-    setUser?.(null);
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    navigate("/");
+    try {
+      // detect active role
+      const path = window.location.pathname || "";
+      const role = path.startsWith("/admin")
+        ? "ADMIN"
+        : path.startsWith("/dept")
+        ? "DEPARTMENT"
+        : null;
+
+      AuthService.logout(role); // clears only that role’s session
+      setUser?.(null);
+      navigate("/", { replace: true });
+
+      // soft reload fallback (helps ensure fresh login state)
+      setTimeout(() => window.location.replace("/"), 200);
+    } catch (err) {
+      console.error("Logout error:", err);
+      navigate("/", { replace: true });
+    }
   };
 
   const isDtao = theme === "dtao";

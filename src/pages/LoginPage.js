@@ -7,17 +7,37 @@ import BackendIndicator from "../components/BackendIndicator";
 import WaitingGame from "../components/WaitingGame";
 
 /**
- * Inline icons to avoid external dependency on 'lucide-react'
+ * Inline icons — no external dependency
  */
 const Eye = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
     <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" />
     <circle cx="12" cy="12" r="3" />
   </svg>
 );
 
 const EyeOff = ({ size = 20 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
     <path d="M17.94 17.94A10.97 10.97 0 0112 20c-7 0-11-8-11-8a21.94 21.94 0 014.5-5.5" />
     <path d="M1 1l22 22" />
     <path d="M14.12 14.12A3 3 0 019.88 9.88" />
@@ -40,7 +60,7 @@ const LoginPage = ({ setUser }) => {
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  // ✅ Redirect if already logged in
+  // ✅ Auto redirect if already logged in
   useEffect(() => {
     const token = AuthService.getToken?.();
     const role = AuthService.getRole?.();
@@ -50,7 +70,7 @@ const LoginPage = ({ setUser }) => {
     }
   }, [navigate]);
 
-  // ✅ Animate dots in “please wait…”
+  // ✅ Animate dots for “please wait…”
   useEffect(() => {
     if (backendStatus !== "offline") return;
     const interval = setInterval(() => {
@@ -59,7 +79,7 @@ const LoginPage = ({ setUser }) => {
     return () => clearInterval(interval);
   }, [backendStatus]);
 
-  // ✅ React to backend status (from BackendIndicator)
+  // ✅ React to backend status changes
   useEffect(() => {
     if (backendStatus === "offline") {
       setShowGif(true);
@@ -82,12 +102,15 @@ const LoginPage = ({ setUser }) => {
     setError("");
     setLoading(true);
     try {
-      AuthService.logout();
       const data = await AuthService.login(email, password);
       const user = data.user;
       const role = (data.role || user?.role || "DEPARTMENT").toUpperCase();
       setUser && setUser(user);
-      navigate(role === "ADMIN" ? "/admin" : "/dept", { replace: true });
+
+      // Small delay for smooth UI
+      setTimeout(() => {
+        navigate(role === "ADMIN" ? "/admin" : "/dept", { replace: true });
+      }, 400);
     } catch (err) {
       const msg =
         err?.response?.data?.error ||
@@ -176,7 +199,7 @@ const LoginPage = ({ setUser }) => {
               />
             </div>
 
-            {/* ---------- Password block with show/hide (no external icon lib) ---------- */}
+            {/* Password with show/hide */}
             <div className="relative">
               <label className="text-sm text-gray-700">Password</label>
               <input
@@ -269,7 +292,7 @@ const LoginPage = ({ setUser }) => {
             )}
           </AnimatePresence>
 
-          {/* ✅ Single Source of Truth */}
+          {/* ✅ Backend Status Indicator */}
           <div className="mt-6 flex justify-center">
             <BackendIndicator onStatusChange={setBackendStatus} />
           </div>

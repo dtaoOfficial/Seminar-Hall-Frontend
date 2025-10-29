@@ -1,109 +1,123 @@
 // src/utils/AuthService.js
 import api from "./api";
 
+/**
+ * Role-specific storage keys
+ */
+const STORAGE_KEYS = {
+  ADMIN: {
+    token: "admin_token",
+    role: "admin_role",
+    user: "admin_user",
+  },
+  DEPARTMENT: {
+    token: "dept_token",
+    role: "dept_role",
+    user: "dept_user",
+  },
+};
+
 const AuthService = {
   /**
-   * Login and store token + user in localStorage (role-based)
+   * ✅ Login function (saves token + user for specific role)
    */
-  async login(email, password, rememberMe = false) {
-    const res = await api.post("/users/login", { email, password, rememberMe });
+  async login(email, password) {
+    const res = await api.post("/users/login", { email, password });
     const data = res.data;
 
-    if (!data) return null;
+    if (!data) throw new Error("Invalid login response");
 
     const role = (data.role || data.user?.role || "DEPARTMENT").toUpperCase();
+    const keys = STORAGE_KEYS[role] || STORAGE_KEYS.DEPARTMENT;
 
-    // ✅ Store token separately per role
-    if (data?.token) {
-      localStorage.setItem(`${role.toLowerCase()}_token`, data.token);
-      localStorage.setItem(`${role.toLowerCase()}_tokenExpiresIn`, String(data.expiresIn || ""));
-    }
+    // Clear old session only for this role
+    Object.values(keys).forEach((k) => localStorage.removeItem(k));
 
-    if (data?.user) {
-      localStorage.setItem(`${role.toLowerCase()}_user`, JSON.stringify(data.user));
-      localStorage.setItem(`${role.toLowerCase()}_role`, role);
-    }
+    // Save new session
+    localStorage.setItem(keys.role, role);
+    if (data.token) localStorage.setItem(keys.token, data.token);
+    if (data.user) localStorage.setItem(keys.user, JSON.stringify(data.user));
 
-    if (data?.users && role === "ADMIN") {
-      localStorage.setItem("admin_users", JSON.stringify(data.users));
-    }
-
-    return data;
+    return { ...data, role };
   },
 
   /**
-   * Logout: clear storage for specific role
+   * ✅ Logout function (can clear specific role or all)
    */
-  logout(role = null) {
-    const r = (role || this.getRole() || "").toLowerCase();
-    if (r) {
-      localStorage.removeItem(`${r}_token`);
-      localStorage.removeItem(`${r}_tokenExpiresIn`);
-      localStorage.removeItem(`${r}_user`);
-      localStorage.removeItem(`${r}_role`);
+  logout(role) {
+    if (!role) {
+      Object.values(STORAGE_KEYS).forEach((group) =>
+        Object.values(group).forEach((key) => localStorage.removeItem(key))
+      );
+      return;
     }
 
-    // Only admins store admin_users
-    if (r === "admin") localStorage.removeItem("admin_users");
+    const keys = STORAGE_KEYS[role.toUpperCase()] || STORAGE_KEYS.DEPARTMENT;
+    Object.values(keys).forEach((k) => localStorage.removeItem(k));
+  },
+
+  getToken(role) {
+    const keys = STORAGE_KEYS[role?.toUpperCase()] || STORAGE_KEYS.DEPARTMENT;
+    return localStorage.getItem(keys.token);
+  },
+
+  getRole(role) {
+    const keys = STORAGE_KEYS[role?.toUpperCase()] || STORAGE_KEYS.DEPARTMENT;
+    return localStorage.getItem(keys.role);
+  },
+
+  getCurrentUser(role) {
+    const keys = STORAGE_KEYS[role?.toUpperCase()] || STORAGE_KEYS.DEPARTMENT;
+    const user = localStorage.getItem(keys.user);
+    return user ? JSON.parse(user) : null;
   },
 
   /**
-   * Get current user object (role-based)
+   * ✅ FIXED VERSION — Auto-detect correct session based on current tab path
    */
-  getCurrentUser() {
-    const role = this.getRole();
-    const raw = localStorage.getItem(`${role.toLowerCase()}_user`);
-    return raw ? JSON.parse(raw) : null;
+  autoLogin() {
+    try {
+      const path = window.location?.pathname || "";
+
+      // Prefer session based on active path
+      if (path.startsWith("/admin")) {
+        const token = this.getToken("ADMIN");
+        const user = this.getCurrentUser("ADMIN");
+        const role = this.getRole("ADMIN");
+        if (token && user && role) return { token, role, user };
+      }
+
+      if (path.startsWith("/dept")) {
+        const token = this.getToken("DEPARTMENT");
+        const user = this.getCurrentUser("DEPARTMENT");
+        const role = this.getRole("DEPARTMENT");
+        if (token && user && role) return { token, role, user };
+      }
+
+      // Fallback (for login page or unexpected path)
+      for (const role of ["ADMIN", "DEPARTMENT"]) {
+        const token = this.getToken(role);
+        const user = this.getCurrentUser(role);
+        const storedRole = this.getRole(role);
+        if (token && user && storedRole) {
+          return { token, role: storedRole, user };
+        }
+      }
+
+      return null;
+    } catch (err) {
+      console.error("autoLogin error:", err);
+      return null;
+    }
   },
 
-  /**
-   * Get active token based on URL path or current role
-   */
   getActiveToken() {
-    const path = window.location.pathname.toLowerCase();
-    if (path.startsWith("/admin")) {
-      return localStorage.getItem("admin_token");
-    }
-    if (path.startsWith("/dept")) {
-      return localStorage.getItem("department_token");
-    }
-
-    // fallback to current role token
-    const role = this.getRole();
-    return localStorage.getItem(`${role.toLowerCase()}_token`);
+    const active = this.autoLogin();
+    return active?.token || null;
   },
 
-  /**
-   * Get token (current user role)
-   */
-  getToken() {
-    const role = this.getRole();
-    return localStorage.getItem(`${role.toLowerCase()}_token`);
-  },
-
-  /**
-   * Check if logged in (current role)
-   */
   isAuthenticated() {
-    const token = this.getActiveToken();
-    return !!token;
-  },
-
-  /**
-   * Get role (ADMIN/DEPARTMENT)
-   */
-  getRole() {
-    // detect from pathname first (for multiple sessions)
-    const path = window.location.pathname.toLowerCase();
-    if (path.startsWith("/admin")) return "ADMIN";
-    if (path.startsWith("/dept")) return "DEPARTMENT";
-
-    // fallback to last saved role
-    const role =
-      localStorage.getItem("admin_role") ||
-      localStorage.getItem("department_role") ||
-      "";
-    return role.toUpperCase();
+    return !!this.autoLogin();
   },
 };
 

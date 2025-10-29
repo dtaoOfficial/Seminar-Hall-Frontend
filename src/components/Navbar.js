@@ -5,6 +5,8 @@ import ThemeToggle from "./ThemeToggle";
 import AnimatedButton from "../components/AnimatedButton";
 import api from "../utils/api";
 import { useNotification } from "./NotificationsProvider";
+import ServerStatusIndicator from "./ServerStatusIndicator"; // <- added
+import AuthService from "../utils/AuthService"; // ✅ added as requested
 
 /* Links arrays (unchanged) */
 const LINKS_ADMIN = [
@@ -162,15 +164,43 @@ export default function Navbar({ user = {}, handleLogout }) {
     };
   }, [drawerOpen]);
 
+  // ✅ Improved role-aware logout as requested
   const onLogout = useCallback(() => {
-    if (typeof handleLogout === "function") {
-      handleLogout();
-    } else {
-      try {
-        localStorage.removeItem("user");
-        localStorage.removeItem("token");
-      } catch {}
-      navigate("/");
+    try {
+      // Detect which tab/role we’re in by pathname
+      const path = (window.location && window.location.pathname) || "";
+      const detectedRole = path.startsWith("/admin")
+        ? "ADMIN"
+        : path.startsWith("/dept")
+        ? "DEPARTMENT"
+        : null;
+
+      // Use AuthService logout to clear only relevant session keys
+      // AuthService.logout(role) should handle per-role clearing; fallback to full logout if not implemented
+      if (typeof AuthService?.logout === "function") {
+        AuthService.logout(detectedRole);
+      } else {
+        // fallback: remove common keys only
+        try {
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+        } catch (_) {}
+      }
+
+      // Let parent clean UI state if provided
+      if (typeof handleLogout === "function") {
+        handleLogout();
+      }
+
+      // Redirect to login page cleanly
+      navigate("/login", { replace: true });
+
+      // Tiny delay + fallback hard reload for edge caches
+      setTimeout(() => window.location.replace("/login"), 200);
+    } catch (err) {
+      console.error("Navbar logout error:", err);
+      // Ensure user lands on login anyway
+      try { navigate("/login", { replace: true }); } catch (_) {}
     }
   }, [handleLogout, navigate]);
 
@@ -489,7 +519,7 @@ export default function Navbar({ user = {}, handleLogout }) {
               </div>
             </div>
 
-            {/* Right: notifications (ADMIN only), user pill + theme toggle */}
+            {/* Right: notifications (ADMIN only), server status, user pill + theme toggle */}
             {/* Fix 3: Updated gap for mobile responsiveness */}
             <div className="flex items-center gap-2 md:gap-3">
               {/* Notification bell (ADMIN only) */}
@@ -570,6 +600,9 @@ export default function Navbar({ user = {}, handleLogout }) {
                   )}
                 </div>
               )}
+
+              {/* Show server status here (top-right) */}
+              <ServerStatusIndicator />
 
               {/* Fix 3: Theme toggle now visible on mobile */}
               <ThemeToggle />
@@ -686,6 +719,11 @@ export default function Navbar({ user = {}, handleLogout }) {
             <AnimatedButton onClick={() => { setDrawerOpen(false); onLogout(); }} className="w-full py-2 rounded-md text-sm">
               Logout
             </AnimatedButton>
+          </div>
+
+          {/* Server status inside the drawer (centered) */}
+          <div className="mt-4 flex justify-center">
+            <ServerStatusIndicator />
           </div>
         </div>
       </div>
