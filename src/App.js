@@ -1,6 +1,6 @@
 // src/App.js
 import React, { useEffect, useState } from "react";
-import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import LoginPage from "./pages/LoginPage";
 import DeptDashboard from "./components/DeptDashboard";
@@ -36,7 +36,6 @@ const LoadingScreen = () => (
 export default function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
-  const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
