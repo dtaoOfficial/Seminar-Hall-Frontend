@@ -7,6 +7,7 @@ import DeptSlotBooking from "../pages/Dept/AddSeminarPage"; // dept form (slot b
 import DeptStatus from "../pages/Dept/DeptStatus";
 import DeptHistory from "../pages/Dept/DeptHistory";
 import DeptDetails from "../pages/Dept/DeptDetails"; // new details for dept
+import DeptCalendarPage from "../pages/Dept/DeptCalendarPage"; // ← ADDED
 import { useTheme } from "../contexts/ThemeContext";
 
 /**
@@ -106,6 +107,7 @@ const DeptDashboard = ({ user, setUser }) => {
           <Route path="status" element={<DeptStatus user={user} />} />
           <Route path="history" element={<DeptHistory user={user} />} />
           <Route path="seminar-details" element={<DeptDetails />} />
+          <Route path="calendar" element={<DeptCalendarPage />} />{/* ← ADDED */}
           {/* catch-all inside dept dashboard: redirect to slot-booking */}
           <Route path="*" element={<Navigate to="slot-booking" replace />} />
         </Routes>

@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import api from "../../utils/api";
 import { useTheme } from "../../contexts/ThemeContext";
 // <-- custom notification hook (adjust path if your file is elsewhere)
@@ -202,6 +202,9 @@ export default function AddSeminarPage() {
   const location = useLocation();
   const { theme } = useTheme() || {};
   const isDtao = theme === "dtao";
+
+  // Initialize navigation
+  const navigate = useNavigate();
 
   // custom notification
   const { notify } = useNotification();
@@ -862,6 +865,23 @@ export default function AddSeminarPage() {
 
                 <button type="button" onClick={doCheckAvailability} disabled={checking} className={`${isDtao ? "px-6 py-3 rounded-lg bg-violet-600 text-white" : "px-6 py-3 rounded-lg bg-indigo-600 text-white"}`}>
                   {checking ? "Checking..." : "Check Availability"}
+                </button>
+
+                {/* New: Open Department Calendar */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/dept/calendar", {
+                      state: { department, selectedHall: selectedHallObj?.name || selectedHall },
+                    })
+                  }
+                  className={`flex-1 py-3 rounded-lg font-semibold ${
+                    isDtao
+                      ? "bg-violet-600 hover:bg-violet-700 text-white border border-violet-800"
+                      : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                  }`}
+                >
+                  Open Department Calendar
                 </button>
               </div>
 

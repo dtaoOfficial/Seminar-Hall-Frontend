@@ -14,9 +14,10 @@ const DayBookingsModal = ({ date, bookings = [], onClose }) => {
   const isDtao = theme === "dtao";
 
   useEffect(() => {
-    const approved = (Array.isArray(bookings) ? bookings : []).filter(
-      (b) => (b.status || "").toUpperCase() === "APPROVED"
-    );
+    // Dept-safe: ensure bookings is an array before filtering
+    const approved = Array.isArray(bookings)
+      ? bookings.filter((b) => (b.status || "").toUpperCase() === "APPROVED")
+      : [];
     setList(approved);
     setExpanded({});
   }, [bookings, date]);

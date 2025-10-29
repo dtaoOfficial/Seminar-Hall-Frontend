@@ -4,7 +4,7 @@ import api from "../../utils/api";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useNotification } from "../../components/NotificationsProvider";
-import { generateCardPDF } from "../../utils/generateCardPDF";
+// removed generateCardPDF import as requested
 
 const authHeader = () => {
   const token = localStorage.getItem("token");
@@ -345,7 +345,8 @@ const DeptStatus = ({ user }) => {
                           <td className="px-4 py-3 text-sm"><StatusPill status={s.status} /></td>
                           <td className="px-4 py-3 text-sm">
                             <div className="flex items-center gap-2">
-                              <div className="truncate">{s.remarks || "—"}</div>
+                              {/* single-line truncated remark preview */}
+                              <div className="truncate max-w-[26ch]">{s.remarks ? String(s.remarks) : "—"}</div>
                               {/* More toggle */}
                               <button
                                 onClick={() => toggleExpanded(s.id)}
@@ -359,12 +360,7 @@ const DeptStatus = ({ user }) => {
                           </td>
                           <td className="px-4 py-3 text-sm text-center">
                             <div className="flex flex-col sm:flex-row items-center gap-2 justify-center">
-                              <button
-                                onClick={() => generateCardPDF(s)}
-                                className="px-3 py-1 rounded-md bg-blue-600 text-white hover:shadow-md transition text-sm"
-                              >
-                                Download Card
-                              </button>
+                              {/* Removed Download Card button as requested */}
                               <button
                                 onClick={() => handleDelete(s)}
                                 className={`${isDtao ? "px-3 py-1 rounded-md bg-rose-600/10 text-rose-300 hover:bg-rose-600/20" : "px-3 py-1 rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100"} transition text-sm`}
@@ -379,10 +375,17 @@ const DeptStatus = ({ user }) => {
                         {isExpanded && (
                           <tr className={isDtao ? "bg-black/30" : "bg-gray-50"}>
                             <td colSpan={9} className="px-4 py-3">
-                              <div className="text-sm">
-                                <strong>Details:</strong>
-                                <div className="mt-2">
-                                  {renderPerDayDetails(s)}
+                              <div className="text-sm space-y-3">
+                                <div>
+                                  <strong>Details:</strong>
+                                  <div className="mt-2">
+                                    {renderPerDayDetails(s)}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <strong>Remarks:</strong>
+                                  <div className="mt-1 text-sm text-slate-400 break-words">{s.remarks || "—"}</div>
                                 </div>
                               </div>
                             </td>
@@ -420,12 +423,21 @@ const DeptStatus = ({ user }) => {
                           <div><strong>Hall:</strong> {s.hallName}</div>
                           <div><strong>Slot:</strong> {slotLabel} <span className={`${isDtao ? "text-slate-300" : "text-xs text-gray-500"}`}>[{s.startTime || "--"} - {s.endTime || "--"}]</span></div>
                           <div><strong>By:</strong> {s.bookingName}</div>
-                          <div className="mt-2"><strong>Remarks:</strong> {s.remarks || "—"}</div>
+
+                          {/* truncated remarks preview on mobile */}
+                          <div className="mt-2">
+                            <strong>Remarks:</strong>
+                            <div className="truncate max-w-[40ch] text-sm text-slate-400">{s.remarks ? String(s.remarks) : "—"}</div>
+                          </div>
 
                           {isExpanded && (
-                            <div className="mt-3">
-                              <div className="text-sm font-medium mb-1">Per-day details</div>
+                            <div className="mt-3 space-y-2">
+                              <div className="text-sm font-medium">Per-day details</div>
                               {renderPerDayDetails(s)}
+                              <div>
+                                <strong>Full Remarks:</strong>
+                                <div className="mt-1 text-sm text-slate-400 break-words">{s.remarks || "—"}</div>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -433,12 +445,7 @@ const DeptStatus = ({ user }) => {
 
                       <div className="flex flex-col items-end gap-2">
                         <StatusPill status={s.status} />
-                        <button
-                          onClick={() => generateCardPDF(s)}
-                          className="px-3 py-1 rounded-md bg-blue-600 text-white hover:shadow-md transition text-sm"
-                        >
-                          Download
-                        </button>
+                        {/* Download removed */}
                         <button
                           onClick={() => handleDelete(s)}
                           className={`${isDtao ? "px-3 py-1 rounded-md bg-rose-600/10 text-rose-300 hover:bg-rose-600/20" : "px-3 py-1 rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100"} transition`}

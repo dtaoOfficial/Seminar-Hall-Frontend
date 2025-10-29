@@ -8,7 +8,7 @@ import { useTheme } from "../contexts/ThemeContext";
  *  - Only counts APPROVED seminars.
  *  - Smooth animation + hover.
  */
-const CalendarGrid = ({ data = [], onDayClick = () => {}, month, year }) => {
+const CalendarGrid = ({ data = [], onDayClick = () => {}, month, year, source = "admin" }) => {
   const { theme } = useTheme() || {};
   const isDtao = theme === "dtao";
 
@@ -72,7 +72,13 @@ const CalendarGrid = ({ data = [], onDayClick = () => {}, month, year }) => {
   for (let d = 1; d <= daysInMonth; d++) {
     const entry = mapByDay.get(d) || null;
     const dateStr = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    const bookings = entry?.bookings || [];
+    const bookings =
+      Array.isArray(entry?.bookings) && entry.bookings.length > 0
+        ? entry.bookings
+        : source === "dept"
+        ? (entry ? Array(entry.bookingCount || 0).fill({ status: "APPROVED" }) : [])
+        : [];
+
     const approvedBookings = bookings.filter(
       (b) => (b.status || "").toUpperCase() === "APPROVED"
     );
