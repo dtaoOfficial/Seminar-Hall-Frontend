@@ -183,7 +183,7 @@ const AdminCalendarPage = () => {
                 isDtao ? "text-slate-100" : "text-gray-900"
               }`}
             >
-              📅 Seminar Hall Calendar
+              Calendar
             </h1>
           </div>
 
