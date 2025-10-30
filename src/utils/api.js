@@ -4,7 +4,7 @@ import API_BASE_URL from "../config";
 import AuthService from "./AuthService";
 
 /**
- * Axios instance (unchanged)
+ * Axios instance (stable)
  */
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -25,25 +25,24 @@ function isAuthEndpoint(url = "") {
   );
 }
 
-/* ---------- ✅ Smart Request Interceptor ---------- */
+/* ---------- ✅ Request Interceptor ---------- */
 api.interceptors.request.use(
   (config) => {
     try {
       const url = (config.url || "").trim();
 
-      // Skip OPTIONS & login/auth endpoints
+      // Skip OPTIONS or login/auth endpoints
       if (config.method?.toUpperCase() === "OPTIONS" || isAuthEndpoint(url))
         return config;
 
-      // ✅ Detect role context based on current route
+      // Detect current role context
       let role = null;
-      const currentPath = window.location.pathname || "";
-      if (currentPath.startsWith("/admin")) role = "ADMIN";
-      else if (currentPath.startsWith("/dept")) role = "DEPARTMENT";
+      const path = window.location.pathname || "";
+      if (path.startsWith("/admin")) role = "ADMIN";
+      else if (path.startsWith("/dept")) role = "DEPARTMENT";
 
-      // ✅ Get correct token based on active tab’s role
+      // Get appropriate token
       const token = AuthService.getToken(role) || AuthService.getActiveToken();
-
       if (token) {
         config.headers = config.headers || {};
         config.headers["Authorization"] = `Bearer ${token}`;
@@ -56,7 +55,7 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-/* ---------- ✅ Response Interceptor ---------- */
+/* ---------- ✅ Response Interceptor (safe logout) ---------- */
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -64,23 +63,22 @@ api.interceptors.response.use(
     const url = error.config?.url || "";
 
     if (status === 401 && !isAuthEndpoint(url)) {
-      console.warn("⚠️ Token expired or invalid, logging out...");
+      console.warn("⚠️ Token expired or unauthorized request, clearing session...");
 
-      // Determine which role to logout
-      const path = window.location.pathname || "";
-      const role = path.startsWith("/admin")
-        ? "ADMIN"
-        : path.startsWith("/dept")
-        ? "DEPARTMENT"
-        : null;
+      // Always fully clear both roles — prevents cross-role conflict
+      AuthService.logout();
 
-      AuthService.logout(role);
-      window.location.href = "/";
+      // Soft redirect (no crash)
+      window.dispatchEvent(new Event("logout"));
+      setTimeout(() => {
+        if (window.location.pathname !== "/") {
+          window.location.replace("/");
+        }
+      }, 300);
     }
 
     return Promise.reject(error);
   }
 );
 
-/* ---------- Export API ---------- */
 export default api;

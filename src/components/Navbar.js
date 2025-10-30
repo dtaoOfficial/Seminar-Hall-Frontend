@@ -164,10 +164,9 @@ export default function Navbar({ user = {}, handleLogout }) {
     };
   }, [drawerOpen]);
 
-  // ✅ Improved role-aware logout as requested
+  // ✅ Updated logout to match global event system
   const onLogout = useCallback(() => {
     try {
-      // Detect which tab/role we’re in by pathname
       const path = (window.location && window.location.pathname) || "";
       const detectedRole = path.startsWith("/admin")
         ? "ADMIN"
@@ -175,32 +174,19 @@ export default function Navbar({ user = {}, handleLogout }) {
         ? "DEPARTMENT"
         : null;
 
-      // Use AuthService logout to clear only relevant session keys
-      // AuthService.logout(role) should handle per-role clearing; fallback to full logout if not implemented
-      if (typeof AuthService?.logout === "function") {
-        AuthService.logout(detectedRole);
-      } else {
-        // fallback: remove common keys only
-        try {
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
-        } catch (_) {}
-      }
+      // ✅ Clear correct session + trigger logout event
+      AuthService.logout(detectedRole);
 
-      // Let parent clean UI state if provided
+      // ✅ If parent handleLogout exists, run it (for state clear)
       if (typeof handleLogout === "function") {
         handleLogout();
       }
 
-      // Redirect to login page cleanly
-      navigate("/login", { replace: true });
-
-      // Tiny delay + fallback hard reload for edge caches
-      setTimeout(() => window.location.replace("/login"), 200);
+      // ✅ Smooth redirect — no hard reload
+      navigate("/", { replace: true });
     } catch (err) {
       console.error("Navbar logout error:", err);
-      // Ensure user lands on login anyway
-      try { navigate("/login", { replace: true }); } catch (_) {}
+      navigate("/", { replace: true });
     }
   }, [handleLogout, navigate]);
 
@@ -351,7 +337,7 @@ export default function Navbar({ user = {}, handleLogout }) {
       setRequestsList((prev) => prev.filter((p) => p.id !== item.id));
     } catch (err) {
       console.error("reject cancel error", err);
-      notify(err?.response?.data?.message || "Failed to reject cancel", "error", 3500);
+      notify(err?.response?.data?.message || "Failed to reject", "error", 3500);
     }
   };
 

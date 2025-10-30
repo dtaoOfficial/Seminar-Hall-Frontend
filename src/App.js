@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 
@@ -38,23 +37,32 @@ export default function App() {
   const [checking, setChecking] = useState(true);
   const location = useLocation();
 
+  // ✅ Clear any old session only if visiting root manually
+  useEffect(() => {
+    if (location.pathname === "/" || location.pathname.startsWith("/login")) {
+      AuthService.logout();
+    }
+  }, [location.pathname]);
+
+  // ✅ Restore logged-in user on refresh for /admin and /dept
   useEffect(() => {
     let isMounted = true;
     const restore = AuthService.autoLogin();
-    const path = location.pathname;
-
-    // 🧩 Only restore user if they’re already inside a protected route
-    if (restore?.user && restore?.role && (path.startsWith("/admin") || path.startsWith("/dept"))) {
-      if (isMounted) setUser(restore.user);
+    if (restore?.user && isMounted) {
+      setUser(restore.user);
     }
-
-    // 🧩 DO NOT auto-redirect from root (login page stays as login)
     setTimeout(() => isMounted && setChecking(false), 300);
-
     return () => {
       isMounted = false;
     };
   }, [location.pathname]);
+
+  // ✅ Sync logout event across tabs
+  useEffect(() => {
+    const onLogout = () => setUser(null);
+    window.addEventListener("logout", onLogout);
+    return () => window.removeEventListener("logout", onLogout);
+  }, []);
 
   if (checking) {
     return (
@@ -67,17 +75,12 @@ export default function App() {
   return (
     <ThemeProvider>
       <GlobalStyles />
-
       <Routes>
-        {/* 🧩 Always show login when visiting root */}
         <Route path="/" element={<LoginPage setUser={setUser} />} />
-
-        {/* Forgot / Reset */}
         <Route path="/forgot" element={<ForgotPassword />} />
         <Route path="/verify" element={<VerifyOtp />} />
         <Route path="/reset" element={<ResetPassword />} />
 
-        {/* Admin Section */}
         <Route
           path="/admin/*"
           element={
@@ -89,7 +92,6 @@ export default function App() {
           }
         />
 
-        {/* Department Section */}
         <Route
           path="/dept/*"
           element={
@@ -101,7 +103,6 @@ export default function App() {
           }
         />
 
-        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ThemeProvider>

@@ -26,10 +26,9 @@ export default function AquaGlassLayout({ children, user, setUser }) {
   // enable reveal animations site-wide (called once in layout)
   useScrollReveal();
 
-  /** ✅ Improved logout: clears only current role session **/
+  /** ✅ Improved logout: clears only current role session and syncs globally **/
   const handleLogout = () => {
     try {
-      // detect active role
       const path = window.location.pathname || "";
       const role = path.startsWith("/admin")
         ? "ADMIN"
@@ -37,12 +36,14 @@ export default function AquaGlassLayout({ children, user, setUser }) {
         ? "DEPARTMENT"
         : null;
 
-      AuthService.logout(role); // clears only that role’s session
-      setUser?.(null);
-      navigate("/", { replace: true });
+      // Clear local storage and emit logout event
+      AuthService.logout(role);
 
-      // soft reload fallback (helps ensure fresh login state)
-      setTimeout(() => window.location.replace("/"), 200);
+      // Clear user state immediately (for instant UI update)
+      setUser?.(null);
+
+      // ✅ Smooth redirect (no reload)
+      navigate("/", { replace: true });
     } catch (err) {
       console.error("Logout error:", err);
       navigate("/", { replace: true });

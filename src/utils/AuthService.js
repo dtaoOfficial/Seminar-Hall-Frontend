@@ -1,19 +1,23 @@
-// src/utils/AuthService.js
 import api from "./api";
 
 /**
- * Role-specific storage keys
+ * Add origin-based prefix to isolate sessions per environment
+ */
+const STORAGE_PREFIX = window.location.origin + "_seminarhall_";
+
+/**
+ * Role-specific storage keys (now prefixed)
  */
 const STORAGE_KEYS = {
   ADMIN: {
-    token: "admin_token",
-    role: "admin_role",
-    user: "admin_user",
+    token: STORAGE_PREFIX + "admin_token",
+    role: STORAGE_PREFIX + "admin_role",
+    user: STORAGE_PREFIX + "admin_user",
   },
   DEPARTMENT: {
-    token: "dept_token",
-    role: "dept_role",
-    user: "dept_user",
+    token: STORAGE_PREFIX + "dept_token",
+    role: STORAGE_PREFIX + "dept_role",
+    user: STORAGE_PREFIX + "dept_user",
   },
 };
 
@@ -43,17 +47,25 @@ const AuthService = {
 
   /**
    * ✅ Logout function (can clear specific role or all)
+   * 🧩 Emits global logout event for real-time detection
    */
   logout(role) {
-    if (!role) {
-      Object.values(STORAGE_KEYS).forEach((group) =>
-        Object.values(group).forEach((key) => localStorage.removeItem(key))
-      );
-      return;
-    }
+    try {
+      if (!role) {
+        Object.values(STORAGE_KEYS).forEach((group) =>
+          Object.values(group).forEach((key) => localStorage.removeItem(key))
+        );
+      } else {
+        const keys =
+          STORAGE_KEYS[role.toUpperCase()] || STORAGE_KEYS.DEPARTMENT;
+        Object.values(keys).forEach((k) => localStorage.removeItem(k));
+      }
 
-    const keys = STORAGE_KEYS[role.toUpperCase()] || STORAGE_KEYS.DEPARTMENT;
-    Object.values(keys).forEach((k) => localStorage.removeItem(k));
+      // 🧠 Notify all listeners (ProtectedRoute, Navbar, etc.)
+      window.dispatchEvent(new Event("logout"));
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
   },
 
   getToken(role) {
@@ -73,13 +85,19 @@ const AuthService = {
   },
 
   /**
-   * ✅ FIXED VERSION — Auto-detect correct session based on current tab path
+   * ✅ FINAL FIX — Prevent old sessions from loading when on root
+   * and only restore sessions if inside a protected path
    */
   autoLogin() {
     try {
       const path = window.location?.pathname || "";
 
-      // Prefer session based on active path
+      // 🚫 Skip restoring any session on root or login page
+      if (path === "/" || path.startsWith("/login")) {
+        return null;
+      }
+
+      // ✅ Restore based on path
       if (path.startsWith("/admin")) {
         const token = this.getToken("ADMIN");
         const user = this.getCurrentUser("ADMIN");
@@ -94,16 +112,7 @@ const AuthService = {
         if (token && user && role) return { token, role, user };
       }
 
-      // Fallback (for login page or unexpected path)
-      for (const role of ["ADMIN", "DEPARTMENT"]) {
-        const token = this.getToken(role);
-        const user = this.getCurrentUser(role);
-        const storedRole = this.getRole(role);
-        if (token && user && storedRole) {
-          return { token, role: storedRole, user };
-        }
-      }
-
+      // ❌ No fallback restore
       return null;
     } catch (err) {
       console.error("autoLogin error:", err);
