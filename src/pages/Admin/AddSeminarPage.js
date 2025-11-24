@@ -5,6 +5,7 @@ import api from "../../utils/api";
 import { useTheme } from "../../contexts/ThemeContext";
 import AnimatedButton from "../../components/AnimatedButton";
 import { useNotification } from "../../components/NotificationsProvider"; // optional — will work if provider present
+import { useNavigate } from "react-router-dom"; // ✅ NEW
 
 /* ---------- Helpers (unchanged) ---------- */
 const ymd = (d) => {
@@ -151,6 +152,7 @@ export default function SingleBookingPage() {
   const { theme } = useTheme() || {};
   const isDtao = theme === "dtao";
   const reduce = useReducedMotion();
+  const navigate = useNavigate(); // ✅ NEW
 
   // booking mode + form (logic identical to yours)
   const [bookingMode, setBookingMode] = useState("time"); // time | day
@@ -537,6 +539,10 @@ export default function SingleBookingPage() {
     );
   };
 
+  const handleOpenFullCalendar = () => {
+    navigate("/admin/calendar"); // ✅ absolute path to same calendar page as dashboard
+  };
+
   /* ---------- Render (UI/upgrades only) ---------- */
   return (
     <div className={`${isDtao ? "min-h-screen p-6 bg-[#08050b] text-slate-100" : "min-h-screen bg-slate-50 p-6"}`}>
@@ -572,11 +578,24 @@ export default function SingleBookingPage() {
           animate={reduce ? {} : { opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.05 }}
         >
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-3">
             <div>
               <h1 className={`${isDtao ? "text-slate-100" : "text-slate-800"} text-2xl font-semibold`}>Book a Seminar Hall (Admin)</h1>
               <p className={`${isDtao ? "text-slate-300" : "text-slate-500"} text-sm mt-1`}>Select a hall from the right, then check & book.</p>
             </div>
+
+            {/* ✅ NEW BUTTON */}
+            <button
+              type="button"
+              onClick={handleOpenFullCalendar}
+              className={`px-4 py-2 rounded-lg font-semibold transition-all duration-500 ${
+                isDtao
+                  ? "bg-violet-600 hover:bg-violet-500 text-white shadow-sm"
+                  : "bg-blue-600 hover:bg-blue-700 text-white shadow"
+              }`}
+            >
+              Open Full Calendar
+            </button>
           </div>
 
           <div className={`mt-4 flex gap-3 rounded-full p-1 ${isDtao ? "bg-black/30" : "bg-indigo-50"}`}>
