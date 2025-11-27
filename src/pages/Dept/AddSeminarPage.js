@@ -1,17 +1,45 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+// src/pages/Dept/AddSeminarPage.js
+
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { useLocation } from "react-router-dom";
 import api from "../../utils/api";
 import { useTheme } from "../../contexts/ThemeContext";
-// <-- custom notification hook (adjust path if your file is elsewhere)
+import AnimatedButton from "../../components/AnimatedButton";
 import { useNotification } from "../../components/NotificationsProvider";
 
-/* ---------- Helpers ---------- */
+/* ---------- Constants / helpers ---------- */
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
 const ymd = (d) => {
   if (!d) return "";
   const dt = d instanceof Date ? d : new Date(d);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(dt.getDate()).padStart(2, "0")}`;
 };
+
 const build15MinOptions = (startHour = 8, endHour = 18) => {
   const out = [];
   for (let h = startHour; h <= endHour; h++) {
@@ -23,63 +51,111 @@ const build15MinOptions = (startHour = 8, endHour = 18) => {
   return out;
 };
 const TIME_OPTIONS = build15MinOptions(8, 18);
-const to12Label = (hhmm) => {
-  if (!hhmm) return "";
-  const [hh, mm] = hhmm.split(":").map(Number);
-  const period = hh >= 12 ? "PM" : "AM";
-  const hour12 = ((hh + 11) % 12) + 1;
-  return `${String(hour12).padStart(2, "0")}:${String(mm).padStart(2, "0")} ${period}`;
-};
+
 const hhmmToMinutes = (hhmm) => {
   if (!hhmm) return null;
   const [hh, mm] = hhmm.split(":").map((n) => parseInt(n, 10));
   if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
   return hh * 60 + mm;
 };
+
 const minutesToHHMM = (m) => {
   if (m == null) return "";
   const hh = Math.floor(m / 60);
   const mm = m % 60;
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 };
+
+const to12Label = (hhmm) => {
+  if (!hhmm) return "";
+  const [hh, mm] = hhmm.split(":").map(Number);
+  const period = hh >= 12 ? "PM" : "AM";
+  const hour12 = ((hh + 11) % 12) + 1;
+  return `${String(hour12).padStart(2, "0")}:${String(mm).padStart(
+    2,
+    "0"
+  )} ${period}`;
+};
+
 const intervalsOverlap = (aStart, aEnd, bStart, bEnd) => {
-  if (aStart == null || aEnd == null || bStart == null || bEnd == null) return false;
+  if (aStart == null || aEnd == null || bStart == null || bEnd == null)
+    return false;
   return aStart < bEnd && bStart < aEnd;
 };
+
 const listDatesBetween = (sd, ed) => {
   const out = [];
-  const s = new Date(sd); s.setHours(0,0,0,0);
-  const e = new Date(ed); e.setHours(0,0,0,0);
-  for (let d = new Date(s); d <= e; d.setDate(d.getDate()+1)) out.push(new Date(d));
+  const s = new Date(sd);
+  s.setHours(0, 0, 0, 0);
+  const e = new Date(ed);
+  e.setHours(0, 0, 0, 0);
+  for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+    out.push(new Date(d));
+  }
   return out;
 };
 
-/* small icons */
+/* ---------- icons ---------- */
+
 const CalendarIcon = (props) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
     <line x1="16" x2="16" y1="2" y2="6" />
     <line x1="8" x2="8" y1="2" y2="6" />
     <line x1="3" x2="21" y1="10" y2="10" />
   </svg>
 );
+
 const ClockIcon = (props) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
     <circle cx="12" cy="12" r="9" />
     <path d="M12 7v6l3 2" />
   </svg>
 );
+
 const UsersIcon = (props) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...props}>
-    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-    <circle cx="9" cy="7" r="4"></circle>
-    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
   </svg>
 );
 
-/* ---------- TimeSelect (theme-aware via prop) ---------- */
-function TimeSelect({ value, onChange, options = TIME_OPTIONS, className = "", ariaLabel = "Select time", isDtao = false }) {
-  const ref = React.useRef(null);
+/* ---------- TimeSelect ---------- */
+
+function TimeSelect({
+  value,
+  onChange,
+  options = TIME_OPTIONS,
+  className = "",
+  ariaLabel = "Select time",
+  isDtao = false,
+}) {
+  const ref = useRef(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -106,17 +182,37 @@ function TimeSelect({ value, onChange, options = TIME_OPTIONS, className = "", a
         aria-expanded={open}
         aria-label={ariaLabel}
         onClick={() => setOpen((s) => !s)}
-        className={`w-full text-left rounded-md px-3 py-2 border flex items-center justify-between ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`}
+        className={`w-full text-left rounded-md px-3 py-2 border flex items-center justify-between ${
+          isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""
+        }`}
       >
         <span>{to12Label(value)}</span>
-        <svg className={`w-4 h-4 ml-2 ${isDtao ? "text-slate-300" : "text-slate-600"}`} viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <svg
+          className={`w-4 h-4 ml-2 ${
+            isDtao ? "text-slate-300" : "text-slate-600"
+          }`}
+          viewBox="0 0 24 24"
+          fill="none"
+        >
+          <path
+            d="M6 9l6 6 6-6"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
 
       {open && (
         <div
           role="listbox"
           tabIndex={-1}
-          className={`absolute z-50 mt-1 w-full rounded-md shadow-lg ${isDtao ? "bg-black/80 border border-violet-800 text-slate-100" : "bg-white border"}`}
+          className={`absolute z-50 mt-1 w-full rounded-md shadow-lg ${
+            isDtao
+              ? "bg-black/80 border border-violet-800 text-slate-100"
+              : "bg-white border"
+          }`}
           style={{ maxHeight: `${5 * 40}px`, overflowY: "auto" }}
         >
           {options.map((opt) => (
@@ -126,9 +222,26 @@ function TimeSelect({ value, onChange, options = TIME_OPTIONS, className = "", a
               data-val={opt}
               aria-selected={opt === value}
               tabIndex={0}
-              onClick={() => { onChange(opt); setOpen(false); }}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onChange(opt); setOpen(false); } }}
-              className={`px-3 py-2 cursor-pointer ${isDtao ? "hover:bg-violet-900/60" : "hover:bg-gray-100"} ${opt === value ? (isDtao ? "bg-violet-900/70 font-semibold" : "bg-blue-50 font-semibold") : ""}`}
+              onClick={() => {
+                onChange(opt);
+                setOpen(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onChange(opt);
+                  setOpen(false);
+                }
+              }}
+              className={`px-3 py-2 cursor-pointer ${
+                isDtao ? "hover:bg-violet-900/60" : "hover:bg-gray-100"
+              } ${
+                opt === value
+                  ? isDtao
+                    ? "bg-violet-900/70 font-semibold"
+                    : "bg-blue-50 font-semibold"
+                  : ""
+              }`}
             >
               {to12Label(opt)}
             </div>
@@ -139,78 +252,248 @@ function TimeSelect({ value, onChange, options = TIME_OPTIONS, className = "", a
   );
 }
 
-/* ---------- BookedSlotsModal (now theme via prop) ---------- */
-const BookedSlotsModal = ({ isOpen, onClose, seminars, hallKey, dateStr, isDtao = false }) => {
-  if (!isOpen) return null;
-  const hallTitle = hallKey?.name || hallKey || "Selected Hall";
-  const relevant = (seminars || []).filter((s) => {
-    const hn = (s.hallName || (s.hall && s.hall.name) || "").toString();
-    const hid = (s.hallId || (s.hall && (s.hall._id || s.hall.id)) || "").toString();
-    return hn === hallKey || hid === String(hallKey) || String(hallKey) === String(s.hall?._id || s.hall?.id);
-  });
+/* ---------- Day bookings modal ---------- */
 
-  const dayBookings = relevant.filter((r) => r.type === "day" || (!r.startTime && !r.endTime && (r.startDate || r.endDate)));
-  const timeBookings = relevant.filter((r) => r.startTime && r.endTime);
+function DayBookingsOverlay({ isDtao, reduce, date, bookings, onClose }) {
+  const prettyDate = (() => {
+    if (!date) return "";
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return date;
+    return d.toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  })();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+    <motion.div
+      initial={reduce ? {} : { opacity: 0 }}
+      animate={reduce ? {} : { opacity: 1 }}
+      exit={reduce ? {} : { opacity: 0 }}
+      transition={{ duration: 0.25 }}
+      className="fixed inset-0 z-[70] flex items-center justify-center"
+      aria-modal="true"
+      role="dialog"
+    >
       <div
-        className={`${isDtao ? "relative w-full max-w-lg bg-black/80 rounded-lg border border-violet-800 p-5 text-slate-100 shadow-xl" : "relative w-full max-w-lg bg-white rounded-lg shadow-lg border border-gray-200 p-5"}`}
-        onClick={(e)=>e.stopPropagation()}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      <motion.div
+        initial={reduce ? {} : { scale: 0.96, opacity: 0 }}
+        animate={reduce ? {} : { scale: 1, opacity: 1 }}
+        transition={{ duration: 0.25 }}
+        className={`relative max-w-3xl w-[95%] max-h-[80vh] overflow-hidden rounded-2xl shadow-xl ${
+          isDtao
+            ? "bg-[#05010a] border border-violet-900 text-slate-100"
+            : "bg-white"
+        }`}
       >
-        <div className="flex items-start justify-between">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/40">
           <div>
-            <h3 className="text-lg font-semibold">{`Booked Slots — ${hallTitle}`}</h3>
-            {dateStr && <p className="text-sm text-slate-400 mt-1">Date: {dateStr}</p>}
+            <div className="text-xs uppercase tracking-[0.14em] text-slate-400">
+              Bookings on
+            </div>
+            <div className="text-lg font-semibold">{prettyDate}</div>
           </div>
-          <button onClick={onClose} className="text-2xl text-slate-400 leading-none">×</button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm px-3 py-1.5 rounded-full bg-slate-200/70 hover:bg-slate-300/80 text-slate-800"
+          >
+            Close
+          </button>
         </div>
 
-        <div className="mt-4 max-h-72 overflow-auto pr-2 space-y-4">
-          <div>
-            <h4 className="text-sm font-medium text-indigo-600 mb-2">Day-wise</h4>
-            {dayBookings.length === 0 ? <p className="text-slate-500">No full-day bookings</p> : (
-              <ul className="space-y-2">
-                {dayBookings.map((b,i)=>(<li key={i} className={`${isDtao ? "p-2 rounded bg-black/60 border border-violet-800" : "p-2 rounded bg-slate-50 border border-gray-100"}`}>
-                  <strong className="text-slate-200">{b.startDate || b.date} → {b.endDate || b.date}</strong>
-                  <div className="text-sm text-slate-400 mt-1">{b.slotTitle || b.bookingName || "Booked"}</div>
-                </li>))}
-              </ul>
-            )}
-          </div>
+        <div className="p-4 space-y-3 overflow-y-auto max-h-[70vh]">
+          {bookings.length === 0 ? (
+            <div
+              className={`text-sm text-center py-6 ${
+                isDtao ? "text-slate-300" : "text-slate-600"
+              }`}
+            >
+              No bookings for this date.
+            </div>
+          ) : (
+            bookings.map((b, idx) => (
+              <BookingCard
+                key={b._id || b.id || idx}
+                booking={b}
+                isDtao={isDtao}
+              />
+            ))
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
 
-          <div>
-            <h4 className="text-sm font-medium text-indigo-600 mb-2">Time-wise</h4>
-            {timeBookings.length === 0 ? <p className="text-slate-500">No time-slot bookings</p> : (
-              <ul className="space-y-2">
-                {timeBookings.map((b,i)=>(<li key={i} className={`${isDtao ? "p-2 rounded bg-black/60 border border-violet-800" : "p-2 rounded bg-slate-50 border border-gray-100"}`}>
-                  <div className="font-semibold text-slate-200">{b.date}</div>
-                  <div className="text-sm text-slate-400">{b.startTime} — {b.endTime} — {b.slotTitle || b.bookingName || "Booked"}</div>
-                </li>))}
-              </ul>
-            )}
+function BookingCard({ booking, isDtao }) {
+  const [open, setOpen] = useState(false);
+
+  const hallName =
+    booking.hallName ||
+    booking.hall?.name ||
+    booking.hall ||
+    booking.room ||
+    booking.venue ||
+    "—";
+  const title =
+    booking.slotTitle || booking.title || booking.topic || "Untitled";
+  const dept =
+    booking.department || booking.dept || booking.departmentName || "—";
+  const dateStr = (booking.date || booking.startDate || "")
+    .toString()
+    .split("T")[0];
+  const timeStr =
+    booking.startTime && booking.endTime
+      ? `${to12Label(booking.startTime)} – ${to12Label(booking.endTime)}`
+      : booking.type === "day"
+      ? "Full day"
+      : "—";
+  const status = (booking.status || "APPROVED").toString();
+  const organizer =
+    booking.bookingName ||
+    booking.organizer ||
+    booking.requesterName ||
+    booking.userName ||
+    "—";
+  const email = booking.email || "—";
+  const phone = booking.phone || booking.mobile || "—";
+  const remarks = booking.remarks || "—";
+
+  return (
+    <div
+      className={`rounded-xl border px-4 py-3 text-sm ${
+        isDtao ? "bg-black/40 border-violet-800" : "bg-slate-50 border-slate-200"
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <div className="text-xs uppercase tracking-[0.14em] text-slate-400">
+            {dept}
           </div>
+          <div className="font-semibold">{title}</div>
+          <div className="text-xs mt-1 text-slate-500">
+            Hall: <span className="font-medium">{hallName}</span>
+          </div>
+          <div className="text-xs text-slate-500">
+            Date: {dateStr} • Time: {timeStr}
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full ${
+              status.toUpperCase() === "APPROVED"
+                ? "bg-emerald-100 text-emerald-700"
+                : status.toUpperCase() === "REJECTED"
+                ? "bg-rose-100 text-rose-700"
+                : "bg-amber-100 text-amber-700"
+            }`}
+          >
+            {status}
+          </span>
+          <button
+            type="button"
+            onClick={() => setOpen((s) => !s)}
+            className="mt-1 text-xs px-3 py-1 rounded-full border border-slate-300 hover:bg-slate-100"
+          >
+            {open ? "Hide details" : "More details"}
+          </button>
         </div>
       </div>
+
+      {open && (
+        <div className="mt-3 border-t pt-2 text-xs space-y-1 text-slate-500">
+          <div>
+            <span className="font-semibold">Organizer:</span> {organizer}
+          </div>
+          <div>
+            <span className="font-semibold">Email:</span> {email}
+          </div>
+          <div>
+            <span className="font-semibold">Phone:</span> {phone}
+          </div>
+          <div>
+            <span className="font-semibold">Remarks:</span> {remarks}
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+}
 
-/* ---------- Component ---------- */
-export default function AddSeminarPage() {
-  const location = useLocation();
+/* ---------- success overlay ---------- */
+function SuccessOverlay({ show, isDtao, reduce }) {
+  if (!show) return null;
+  return (
+    <motion.div
+      initial={reduce ? {} : { opacity: 0 }}
+      animate={reduce ? {} : { opacity: 1 }}
+      exit={reduce ? {} : { opacity: 0 }}
+      transition={{ duration: 0.28 }}
+      className="fixed inset-0 z-[60] flex items-center justify-center"
+      aria-hidden={!show}
+    >
+      <motion.div
+        initial={reduce ? {} : { scale: 0.98, opacity: 0 }}
+        animate={reduce ? {} : { scale: 1, opacity: 1 }}
+        transition={{
+          duration: 0.28,
+          type: "spring",
+          stiffness: 350,
+          damping: 28,
+        }}
+        className={`${
+          isDtao
+            ? "rounded-2xl bg-black/80 border border-violet-800 p-6 shadow-xl text-slate-100"
+            : "rounded-2xl bg-white p-6 shadow-xl"
+        }`}
+        style={{ backdropFilter: "blur(6px)" }}
+        role="status"
+        aria-live="polite"
+      >
+        <div className="text-lg font-semibold">Request sent!</div>
+        <div
+          className={`${isDtao ? "text-slate-300" : "text-slate-600"} text-sm`}
+        >
+          Your seminar request is now PENDING for admin approval.
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={reduce ? {} : { opacity: 0 }}
+        animate={reduce ? {} : { opacity: 1 }}
+        transition={{ duration: 0.36 }}
+        className="absolute inset-0"
+        style={{
+          background: "rgba(0,0,0,0.35)",
+          backdropFilter: "blur(6px)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+        aria-hidden
+      />
+    </motion.div>
+  );
+}
+
+/* ---------- MAIN COMPONENT ---------- */
+
+export default function DeptAddSeminarPage() {
   const { theme } = useTheme() || {};
   const isDtao = theme === "dtao";
-
-  // Initialize navigation
-  const navigate = useNavigate();
-
-  // custom notification
-  const { notify } = useNotification();
+  const reduce = useReducedMotion();
+  const notificationApi = useNotification();
+  const location = useLocation();
 
   const [bookingMode, setBookingMode] = useState("time");
   const [slotTitle, setSlotTitle] = useState("");
+
   const [bookingName, setBookingName] = useState("");
   const [email, setEmail] = useState("");
   const [department, setDepartment] = useState("");
@@ -224,228 +507,408 @@ export default function AddSeminarPage() {
   const [endDate, setEndDate] = useState(new Date());
   const [daySlots, setDaySlots] = useState({});
 
-  const [appliedAt, setAppliedAt] = useState(new Date().toISOString());
-
   const [halls, setHalls] = useState([]);
   const [seminars, setSeminars] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  const [bookedMap, setBookedMap] = useState(new Map());
-
   const [selectedHall, setSelectedHall] = useState("");
   const [selectedHallObj, setSelectedHallObj] = useState(null);
-  const [showBookedModal, setShowBookedModal] = useState(false);
-  const [bookedModalDate, setBookedModalDate] = useState("");
-  const notifRef = useRef(null);
-  const [fieldErrors, setFieldErrors] = useState({ slotTitle: "", bookingName: "", email: "", phone: "" });
 
-  const [autoCheckEnabled, setAutoCheckEnabled] = useState(false);
   const [lastCheckOk, setLastCheckOk] = useState(false);
   const [lastCheckMessage, setLastCheckMessage] = useState("");
-  const [checking, setChecking] = useState(false);
-  const [isSelectedPast, setIsSelectedPast] = useState(false);
-  const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [, setAppliedAt] = useState("");
+
+  // calendar
+  const now = new Date();
+  const [calendarMonth, setCalendarMonth] = useState(now.getMonth());
+  const [calendarYear, setCalendarYear] = useState(now.getFullYear());
+
+  const [showDayModal, setShowDayModal] = useState(false);
+  const [dayModalDate, setDayModalDate] = useState("");
+  const [dayModalBookings, setDayModalBookings] = useState([]);
+
+  const notifTimerRef = useRef(null);
 
   const DEFAULT_REMARKS = "Requested by Dept";
 
-  const validateEmail = (em) => !!em && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em);
-  const validatePhone = (p) => !!p && /^[6-9]\d{9}$/.test(p);
+  const showNotification = useCallback(
+    (msg, type = "info", ms = 3500) => {
+      if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
+      if (notificationApi && typeof notificationApi.notify === "function") {
+        notificationApi.notify(msg, type, {
+          autoDismiss: ms,
+        });
+      }
+      if (ms > 0) {
+        notifTimerRef.current = setTimeout(() => {}, ms);
+      }
+    },
+    [notificationApi]
+  );
 
+  // Read logged-in DEPARTMENT user from localStorage (handles seminarhall_dept_user key)
   const getLoggedUser = () => {
-    try { const raw = localStorage.getItem("user"); return raw ? JSON.parse(raw) : null; } catch { return null; }
+    try {
+      let raw = null;
+
+      // Look specifically for your seminarhall dept user key
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i) || "";
+        if (
+          key.includes("seminarhall_dept_user") || // your actual key
+          key.endsWith("_dept_user") || // fallback pattern
+          key.endsWith("_user") // generic fallback
+        ) {
+          const v = localStorage.getItem(key);
+          if (v) {
+            raw = v;
+            break;
+          }
+        }
+      }
+
+      if (!raw) return null;
+
+      const base = JSON.parse(raw);
+      if (!base || typeof base !== "object") return null;
+
+      // Map fields exactly as stored:
+      return {
+        name: base.name || "",
+        email: base.email || "",
+        department: base.department || "",
+        phone: base.phone || "",
+      };
+    } catch (e) {
+      console.error("Failed to parse dept user from localStorage", e);
+      return null;
+    }
   };
 
-  /* ---------- fetch ---------- */
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [hRes, sRes, dRes] = await Promise.all([
-        api.get("/halls").catch(()=>({ data: [] })),
-        api.get("/seminars").catch(()=>({ data: [] })),
-        api.get("/departments").catch(()=>({ data: [] }))
-      ]);
-      setHalls(Array.isArray(hRes.data) ? hRes.data : []);
-      setSeminars(Array.isArray(sRes.data) ? sRes.data : []);
-      const depts = Array.isArray(dRes.data) ? dRes.data.map(d => (typeof d === "string" ? d : d?.name)).filter(Boolean) : [];
-      setDepartments(depts);
-      if (Array.isArray(hRes.data) && hRes.data.length > 0 && !selectedHall) {
-        const first = hRes.data[0];
-        setSelectedHall(first.name || first._id || first.id || "");
+  /* ---------- fetch data ---------- */
+
+  const fetchAll = useCallback(
+    async () => {
+      try {
+        const [hRes, sRes] = await Promise.all([
+          api.get("/halls").catch(() => ({ data: [] })),
+          api.get("/seminars").catch(() => ({ data: [] })),
+        ]);
+
+        const hallsData = Array.isArray(hRes.data) ? hRes.data : [];
+        const semData = Array.isArray(sRes.data) ? sRes.data : [];
+
+        setHalls(hallsData);
+        setSeminars(semData);
+
+        if (!selectedHall && hallsData.length > 0) {
+          const first = hallsData[0];
+          setSelectedHall(first.name || first._id || first.id || "");
+          setSelectedHallObj(first);
+        }
+      } catch (err) {
+        console.error("Dept fetchAll error:", err);
+        showNotification("Error fetching halls / seminars", "error");
       }
-    } catch (err) {
-      console.error("fetchAll failed", err);
-      notify("Error fetching data", "error");
-    } finally {
-      setLoading(false);
+    },
+    [selectedHall, showNotification]
+  );
+
+  useEffect(() => {
+    fetchAll();
+    return () => {
+      if (notifTimerRef.current) clearTimeout(notifTimerRef.current);
+    };
+  }, [fetchAll]);
+
+  useEffect(() => {
+    if (!selectedHall) {
+      setSelectedHallObj(null);
+      return;
     }
-  }, [selectedHall, notify]);
+    const obj = halls.find(
+      (h) =>
+        h.name === selectedHall ||
+        String(h._id) === String(selectedHall) ||
+        String(h.id) === String(selectedHall)
+    );
+    setSelectedHallObj(obj || null);
+  }, [selectedHall, halls]);
 
-  useEffect(()=>{ fetchAll(); return ()=>{ if (notifRef.current) clearTimeout(notifRef.current); } }, [fetchAll]);
+  /* ---------- normalize seminars for availability ---------- */
 
-  /* ---------- normalize seminars -> bookedMap ---------- */
-  useEffect(()=> {
+  const normalizedBookings = useMemo(() => {
     const map = new Map();
+
+    const toDateKey = (value) => {
+      if (!value) return null;
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return null;
+      return ymd(d);
+    };
+
     (seminars || []).forEach((s) => {
       try {
-        // only approved bookings block availability
-        if (String((s.status || "").toUpperCase()) !== "APPROVED") return;
+        if (String((s.status || "APPROVED")).toUpperCase() !== "APPROVED")
+          return;
 
         const hallName = s.hallName || s.hall?.name || "";
         const hallId = s.hallId || s.hall?._id || s.hall?.id || "";
 
-        // 1) If explicit startDate & endDate -> treat as day-range (full days)
-        if (s.startDate && s.endDate) {
-          const sd = new Date(s.startDate);
-          const ed = new Date(s.endDate);
-          for (let d = new Date(sd); d <= ed; d.setDate(d.getDate()+1)) {
-            const key = ymd(new Date(d));
+        // day-range full
+        if (s.startDate && s.endDate && !s.daySlots) {
+          const sdKey = toDateKey(s.startDate);
+          const edKey = toDateKey(s.endDate);
+          if (!sdKey || !edKey) return;
+          const days = listDatesBetween(new Date(sdKey), new Date(edKey));
+          days.forEach((d) => {
+            const key = ymd(d);
             const arr = map.get(key) || [];
-            // full-day entry
-            arr.push({ date: key, startMin: 0, endMin: 1440, hallName, hallId, original: s, type: "day", startDate: s.startDate, endDate: s.endDate });
+            arr.push({
+              date: key,
+              startMin: 0,
+              endMin: 1440,
+              hallName,
+              hallId,
+              original: s,
+              type: "day",
+            });
             map.set(key, arr);
-          }
+          });
           return;
         }
 
-        // 2) If a daySlots object exists (aggregated DayRange payload)
+        // aggregated with daySlots
         if (s.daySlots && typeof s.daySlots === "object") {
-          // use explicit startDate/endDate if present, else derive from daySlots keys
           const keys = Object.keys(s.daySlots || {}).sort();
-          // if keys empty, fallback to single date stored in s.date (rare)
-          if (keys.length === 0) {
-            const dateKey = (s.date && s.date.split ? s.date.split("T")[0] : s.date) || ymd(new Date());
-            const arr = map.get(dateKey) || [];
-            arr.push({ date: dateKey, startMin: 0, endMin: 1440, hallName, hallId, original: s, type: "day" });
-            map.set(dateKey, arr);
-            return;
-          }
-
+          if (keys.length === 0) return;
           for (const key of keys) {
-            const val = s.daySlots[key]; // either null (full-day) or {startTime,endTime}
+            const val = s.daySlots[key];
             if (!val) {
-              // full-day
               const arr = map.get(key) || [];
-              arr.push({ date: key, startMin: 0, endMin: 1440, hallName, hallId, original: s, type: "day", startDate: keys[0], endDate: keys[keys.length-1] });
+              arr.push({
+                date: key,
+                startMin: 0,
+                endMin: 1440,
+                hallName,
+                hallId,
+                original: s,
+                type: "day",
+              });
               map.set(key, arr);
             } else {
-              // time-based for that date
-              const sTime = val.startTime || val.start || null;
-              const eTime = val.endTime || val.end || null;
-              const sMin = hhmmToMinutes(sTime);
-              const eMin = hhmmToMinutes(eTime);
+              const sMin = hhmmToMinutes(val.startTime || val.start);
+              const eMin = hhmmToMinutes(val.endTime || val.end);
+              const arr = map.get(key) || [];
               if (sMin != null && eMin != null) {
-                const arr = map.get(key) || [];
-                arr.push({ date: key, startMin: sMin, endMin: eMin, startTime: sTime, endTime: eTime, hallName, hallId, original: s, type: "time" });
-                map.set(key, arr);
+                arr.push({
+                  date: key,
+                  startMin: sMin,
+                  endMin: eMin,
+                  hallName,
+                  hallId,
+                  original: s,
+                  type: "time",
+                });
               } else {
-                // fallback to full-day if times invalid
-                const arr = map.get(key) || [];
-                arr.push({ date: key, startMin: 0, endMin: 1440, hallName, hallId, original: s, type: "day", startDate: keys[0], endDate: keys[keys.length-1] });
-                map.set(key, arr);
+                arr.push({
+                  date: key,
+                  startMin: 0,
+                  endMin: 1440,
+                  hallName,
+                  hallId,
+                  original: s,
+                  type: "day",
+                });
               }
+              map.set(key, arr);
             }
           }
           return;
         }
 
-        // 3) Time-booking: date + startTime + endTime
-        const dateKey = (s.date && s.date.split ? s.date.split("T")[0] : s.date) || s.startDate || ymd(new Date());
+        const dateKey =
+          toDateKey(s.date) || toDateKey(s.startDate) || toDateKey(new Date());
         if (!dateKey) return;
 
-        // if missing start/end times, treat as full-day
         if (!s.startTime || !s.endTime) {
           const arr = map.get(dateKey) || [];
-          arr.push({ date: dateKey, startMin: 0, endMin: 1440, hallName, hallId, original: s, type: "day" });
+          arr.push({
+            date: dateKey,
+            startMin: 0,
+            endMin: 1440,
+            hallName,
+            hallId,
+            original: s,
+            type: "day",
+          });
           map.set(dateKey, arr);
           return;
         }
 
         const sMin = hhmmToMinutes(s.startTime);
         const eMin = hhmmToMinutes(s.endTime);
-        if (sMin == null || eMin == null) {
-          const arr = map.get(dateKey) || [];
-          arr.push({ date: dateKey, startMin: 0, endMin: 1440, hallName, hallId, original: s, type: "day" });
-          map.set(dateKey, arr);
-          return;
-        }
-
         const arr = map.get(dateKey) || [];
-        arr.push({ date: dateKey, startMin: sMin, endMin: eMin, startTime: s.startTime, endTime: s.endTime, hallName, hallId, original: s, type: "time" });
+        if (sMin == null || eMin == null) {
+          arr.push({
+            date: dateKey,
+            startMin: 0,
+            endMin: 1440,
+            hallName,
+            hallId,
+            original: s,
+            type: "day",
+          });
+        } else {
+          arr.push({
+            date: dateKey,
+            startMin: sMin,
+            endMin: eMin,
+            hallName,
+            hallId,
+            original: s,
+            type: "time",
+          });
+        }
         map.set(dateKey, arr);
       } catch (e) {
-        // ignore an individual seminar parse error
+        console.error("normalize seminar error (dept)", e, s);
       }
     });
-    setBookedMap(map);
+
+    return map;
   }, [seminars]);
 
-  useEffect(()=> {
-    if (!selectedHall) { setSelectedHallObj(null); return; }
-    const obj = halls.find((h) => h.name === selectedHall || String(h._id) === String(selectedHall) || String(h.id) === String(selectedHall));
-    setSelectedHallObj(obj || null);
-  }, [selectedHall, halls]);
+  const isDateFullDayBlocked = useCallback(
+    (dateStr, hallKey) => {
+      const arr = normalizedBookings.get(dateStr) || [];
+      return arr.some(
+        (b) =>
+          (b.type === "day" || (b.startMin === 0 && b.endMin === 1440)) &&
+          (b.hallName === hallKey || String(b.hallId) === String(hallKey))
+      );
+    },
+    [normalizedBookings]
+  );
 
-  const isDateFullDayBlocked = useCallback((dateStr, hall) => {
-    const arr = bookedMap.get(dateStr) || [];
-    return arr.some(b => (b.type === "day" || (b.startMin === 0 && b.endMin === 1440)) && (b.hallName === hall || String(b.hallId) === String(hall)));
-  }, [bookedMap]);
+  const getCalendarDayStatus = (dateStr, hallKey) => {
+    const arr = normalizedBookings.get(dateStr) || [];
+    if (!hallKey) {
+      if (arr.length === 0) return "free";
+      const full = arr.some(
+        (b) => b.type === "day" || (b.startMin === 0 && b.endMin === 1440)
+      );
+      return full ? "full" : "partial";
+    }
+    const hallBookings = arr.filter(
+      (b) => b.hallName === hallKey || String(b.hallId) === String(hallKey)
+    );
+    if (hallBookings.length === 0) return "free";
+    if (
+      hallBookings.some(
+        (b) => b.type === "day" || (b.startMin === 0 && b.endMin === 1440)
+      )
+    )
+      return "full";
+    return "partial";
+  };
 
-  /* ---------- availability checks ---------- */
-  const checkTimeWiseAvailability = useCallback(() => {
-    if (!selectedHall) return { ok:false, msg:"Please select a hall from the right." };
-    if (!date) return { ok:false, msg:"Pick a date." };
-    if (!startTime || !endTime) return { ok:false, msg:"Pick start & end times." };
+  /* ---------- availability check ---------- */
+
+  const checkTimeWiseAvailability = () => {
+    if (!selectedHall)
+      return { ok: false, msg: "Please select a hall (Venue) first." };
+    if (!date) return { ok: false, msg: "Pick a date." };
+    if (!startTime || !endTime)
+      return { ok: false, msg: "Pick start & end times." };
 
     const ds = ymd(date);
     const sMin = hhmmToMinutes(startTime);
     const eMin = hhmmToMinutes(endTime);
-    if (sMin == null || eMin == null) return { ok:false, msg:"Invalid time" };
-    if (eMin <= sMin) return { ok:false, msg:"End must be after start" };
+    if (sMin == null || eMin == null)
+      return { ok: false, msg: "Invalid time." };
+    if (eMin <= sMin)
+      return { ok: false, msg: "End time must be after start time." };
 
-    if (isDateFullDayBlocked(ds, selectedHall)) return { ok:false, msg:`Date ${ds} is fully blocked.` };
+    if (isDateFullDayBlocked(ds, selectedHall))
+      return {
+        ok: false,
+        msg: `Date ${ds} is fully blocked for this hall.`,
+      };
 
-    const arr = bookedMap.get(ds) || [];
-    const overlapping = arr.filter(b => {
-      const hallMatch = (b.hallName === selectedHall) || (String(b.hallId) === String(selectedHall));
+    const arr = normalizedBookings.get(ds) || [];
+    const overlapping = arr.filter((b) => {
+      const hallMatch =
+        b.hallName === selectedHall || String(b.hallId) === String(selectedHall);
       if (!hallMatch) return false;
       return intervalsOverlap(sMin, eMin, b.startMin, b.endMin);
     });
 
     if (overlapping.length === 0) {
-      return { ok:true, msg:`Available ${to12Label(startTime)} — ${to12Label(endTime)} on ${ds}` };
+      return {
+        ok: true,
+        msg: `Available ${to12Label(
+          startTime
+        )} — ${to12Label(endTime)} on ${ds}`,
+      };
     }
 
-    const conflictMsgs = overlapping.map(b => `${b.date} (${minutesToHHMM(b.startMin)} — ${minutesToHHMM(b.endMin)})`);
+    const conflictMsgs = overlapping.map(
+      (b) =>
+        `${b.date} (${minutesToHHMM(b.startMin)} — ${minutesToHHMM(
+          b.endMin
+        )})`
+    );
+
     const needed = eMin - sMin;
     const dayStart = hhmmToMinutes(TIME_OPTIONS[0]);
-    const dayEnd = hhmmToMinutes(TIME_OPTIONS[TIME_OPTIONS.length-1]) + 15;
+    const dayEnd =
+      hhmmToMinutes(TIME_OPTIONS[TIME_OPTIONS.length - 1]) + 15;
     let suggestion = null;
+
     for (let cand = dayStart; cand + needed <= dayEnd; cand += 15) {
       let conflict = false;
       for (const b of arr) {
-        const hallMatch = (b.hallName === selectedHall) || (String(b.hallId) === String(selectedHall));
+        const hallMatch =
+          b.hallName === selectedHall ||
+          String(b.hallId) === String(selectedHall);
         if (!hallMatch) continue;
-        if (intervalsOverlap(cand, cand + needed, b.startMin, b.endMin)) { conflict = true; break; }
+        if (intervalsOverlap(cand, cand + needed, b.startMin, b.endMin)) {
+          conflict = true;
+          break;
+        }
       }
-      if (!conflict) { suggestion = cand; break; }
+      if (!conflict) {
+        suggestion = cand;
+        break;
+      }
     }
 
-    const conflictText = `Conflict: ${conflictMsgs.join(", ")}`;
-    const suggestionText = suggestion != null ? `Try: ${to12Label(minutesToHHMM(suggestion))} — ${to12Label(minutesToHHMM(suggestion + needed))} on ${ds}` : `No alternative found on ${ds}`;
-    return { ok:false, msg: `${conflictText}. ${suggestionText}` };
-  }, [selectedHall, date, startTime, endTime, bookedMap, isDateFullDayBlocked]);
+    const conflictText = `Conflicts: ${conflictMsgs.join(", ")}`;
+    const suggestionText =
+      suggestion != null
+        ? `Try ${to12Label(
+            minutesToHHMM(suggestion)
+          )} — ${to12Label(minutesToHHMM(suggestion + needed))} on ${ds}`
+        : `No alternative free slot on ${ds}`;
+    return { ok: false, msg: `${conflictText}. ${suggestionText}` };
+  };
 
-  const checkDayWiseAvailability = useCallback(() => {
-    if (!selectedHall) return { ok:false, msg:"Select a hall first." };
-    if (!startDate || !endDate) return { ok:false, msg:"Select start & end dates." };
-    const sd = new Date(startDate); sd.setHours(0,0,0,0);
-    const ed = new Date(endDate); ed.setHours(0,0,0,0);
-    if (ed < sd) return { ok:false, msg:"End date can't be before start date." };
+  const checkDayWiseAvailability = () => {
+    if (!selectedHall)
+      return { ok: false, msg: "Please select a hall (Venue) first." };
+    if (!startDate || !endDate)
+      return { ok: false, msg: "Pick start & end dates." };
 
+    const sd = new Date(startDate);
+    const ed = new Date(endDate);
+    sd.setHours(0, 0, 0, 0);
+    ed.setHours(0, 0, 0, 0);
+    if (ed < sd)
+      return { ok: false, msg: "End date cannot be before start date." };
+
+    const days = listDatesBetween(sd, ed);
     const conflicts = [];
     const suggestions = [];
-    const days = listDatesBetween(sd, ed);
 
     for (const d of days) {
       const key = ymd(d);
@@ -453,108 +916,122 @@ export default function AddSeminarPage() {
         conflicts.push(`${key} (full-day)`);
         continue;
       }
-      const ds = daySlots[key];
-      if (!ds || !ds.startTime || !ds.endTime) {
-        // if user left per-day times blank -> it's full-day request, but we already checked full-day block above
+      const dsObj = daySlots[key];
+      if (!dsObj || !dsObj.startTime || !dsObj.endTime) continue;
+      const sMin = hhmmToMinutes(dsObj.startTime);
+      const eMin = hhmmToMinutes(dsObj.endTime);
+      if (sMin == null || eMin == null || eMin <= sMin) {
+        conflicts.push(`${key} (invalid time)`);
         continue;
       }
-      const sMin = hhmmToMinutes(ds.startTime);
-      const eMin = hhmmToMinutes(ds.endTime);
-      if (sMin == null || eMin == null || eMin <= sMin) { conflicts.push(`${key} (invalid times)`); continue; }
-      const arr = bookedMap.get(key) || [];
-      const overlap = arr.some(b => {
-        const hallMatch = (b.hallName === selectedHall) || (String(b.hallId) === String(selectedHall));
+      const arr = normalizedBookings.get(key) || [];
+      const overlap = arr.some((b) => {
+        const hallMatch =
+          b.hallName === selectedHall ||
+          String(b.hallId) === String(selectedHall);
         if (!hallMatch) return false;
         return intervalsOverlap(sMin, eMin, b.startMin, b.endMin);
       });
       if (overlap) {
-        conflicts.push(`${key} (${ds.startTime} — ${ds.endTime})`);
+        conflicts.push(`${key} (${dsObj.startTime} — ${dsObj.endTime})`);
         const needed = eMin - sMin;
         const dayStart = hhmmToMinutes(TIME_OPTIONS[0]);
-        const dayEnd = hhmmToMinutes(TIME_OPTIONS[TIME_OPTIONS.length-1]) + 15;
+        const dayEnd =
+          hhmmToMinutes(TIME_OPTIONS[TIME_OPTIONS.length - 1]) + 15;
         let found = null;
-        const arrAll = bookedMap.get(key) || [];
         for (let cand = dayStart; cand + needed <= dayEnd; cand += 15) {
           let conf = false;
-          for (const b of arrAll) {
-            const hallMatch = (b.hallName === selectedHall) || (String(b.hallId) === String(selectedHall));
+          for (const b of arr) {
+            const hallMatch =
+              b.hallName === selectedHall ||
+              String(b.hallId) === String(selectedHall);
             if (!hallMatch) continue;
-            if (intervalsOverlap(cand, cand + needed, b.startMin, b.endMin)) { conf = true; break; }
+            if (intervalsOverlap(cand, cand + needed, b.startMin, b.endMin)) {
+              conf = true;
+              break;
+            }
           }
-          if (!conf) { found = cand; break; }
+          if (!conf) {
+            found = cand;
+            break;
+          }
         }
-        if (found != null) suggestions.push(`${key}: ${to12Label(minutesToHHMM(found))} — ${to12Label(minutesToHHMM(found + needed))}`);
+        if (found != null) {
+          suggestions.push(
+            `${key}: ${to12Label(
+              minutesToHHMM(found)
+            )} — ${to12Label(minutesToHHMM(found + needed))}`
+          );
+        }
       }
     }
 
     if (conflicts.length) {
       let msg = `Conflicts on: ${conflicts.join(", ")}`;
-      if (suggestions.length) msg += `. Suggestions: ${suggestions.slice(0,3).join("; ")}`;
-      return { ok:false, msg };
+      if (suggestions.length)
+        msg += `. Suggestions: ${suggestions.slice(0, 3).join("; ")}`;
+      return { ok: false, msg };
     }
-    return { ok:true, msg: `All selected days available (${ymd(sd)} → ${ymd(ed)})` };
-  }, [selectedHall, startDate, endDate, daySlots, bookedMap, isDateFullDayBlocked]);
 
-  const doCheckAvailability = useCallback(async () => {
-    setChecking(true);
-    setLastCheckMessage("");
+    return {
+      ok: true,
+      msg: `All selected days available (${ymd(sd)} → ${ymd(ed)})`,
+    };
+  };
+
+  const doCheckAvailability = async () => {
     setLastCheckOk(false);
-    try {
-      const res = bookingMode === "day" ? checkDayWiseAvailability() : checkTimeWiseAvailability();
-      setLastCheckOk(!!res.ok);
-      setLastCheckMessage(res.msg);
-      notify(res.msg, res.ok ? "success" : "warn", { autoDismiss: res.ok ? 3000 : 7000 });
-      return res;
-    } catch (err) {
-      console.error("check err", err);
-      notify("Error checking availability", "error");
-      return { ok:false, msg:"Error checking availability" };
-    } finally {
-      setChecking(false);
-    }
-  }, [bookingMode, checkDayWiseAvailability, checkTimeWiseAvailability, notify]);
-
-  /* ---------- auto-check ---------- */
-  const autoCheckTimer = useRef(null);
-  useEffect(() => {
-    if (!autoCheckEnabled) return;
-    if (autoCheckTimer.current) clearTimeout(autoCheckTimer.current);
-    autoCheckTimer.current = setTimeout(() => { doCheckAvailability(); }, 700);
-    return () => { if (autoCheckTimer.current) clearTimeout(autoCheckTimer.current); };
-  }, [autoCheckEnabled, bookingMode, selectedHall, date, startTime, endTime, startDate, endDate, daySlots, doCheckAvailability]);
+    setLastCheckMessage("");
+    const res =
+      bookingMode === "day"
+        ? checkDayWiseAvailability()
+        : checkTimeWiseAvailability();
+    setLastCheckOk(!!res.ok);
+    setLastCheckMessage(res.msg);
+    showNotification(res.msg, res.ok ? "success" : "warn", res.ok ? 3000 : 7000);
+    return res;
+  };
 
   /* ---------- submit ---------- */
+
   const resetForm = () => {
     setSlotTitle("");
-    setStartTime(TIME_OPTIONS[4]);
-    setEndTime(TIME_OPTIONS[8]);
+    setStartTime(TIME_OPTIONS[4] || "09:00");
+    setEndTime(TIME_OPTIONS[8] || "10:00");
     setStartDate(new Date());
     setEndDate(new Date());
     setDaySlots({});
     setLastCheckOk(false);
     setLastCheckMessage("");
-    notify("Form cleared", "info", { autoDismiss: 1200 });
+    showNotification("Form cleared.", "info", 1500);
   };
 
-  const handleSubmit = async (ev) => {
-    ev && ev.preventDefault();
-    if (!lastCheckOk) { notify("Please Check Availability first (or enable auto-check).", "warn"); return; }
+  const handleSubmit = async (e) => {
+    e && e.preventDefault();
 
-    setFieldErrors({ slotTitle: "", bookingName: "", email: "", phone: "" });
-    let hasErr = false;
-    const errs = { slotTitle: "", bookingName: "", email: "", phone: "" };
-    if (!slotTitle || !slotTitle.trim()) { errs.slotTitle = "Event required"; hasErr = true; }
-    if (!bookingName || !bookingName.trim()) { errs.bookingName = "Faculty required"; hasErr = true; }
-    if (!validateEmail(email)) { errs.email = "Invalid email"; hasErr = true; }
-    if (!validatePhone(phone)) { errs.phone = "Invalid phone"; hasErr = true; }
-    setFieldErrors(errs);
-    if (hasErr) { const first = Object.values(errs).find(Boolean); notify(first, "warn"); return; }
+    const res =
+      bookingMode === "day"
+        ? checkDayWiseAvailability()
+        : checkTimeWiseAvailability();
+    if (!res.ok) {
+      setLastCheckOk(false);
+      setLastCheckMessage(res.msg);
+      showNotification(res.msg, "warn", 6000);
+      return;
+    }
 
-    setLoadingSubmit(true);
-    const nowIso = new Date().toISOString();
-    setAppliedAt(nowIso);
+    if (!slotTitle || !slotTitle.trim()) {
+      showNotification("Event name required", "warn");
+      return;
+    }
+
+    if (!email || !bookingName || !department || !phone) {
+      showNotification("Profile info missing. Please login again.", "warn");
+      return;
+    }
 
     try {
+      const nowIso = new Date().toISOString();
       if (bookingMode === "time") {
         const payload = {
           hallName: selectedHall || selectedHallObj?.name,
@@ -569,28 +1046,25 @@ export default function AddSeminarPage() {
           appliedAt: nowIso,
           date: ymd(date),
           startTime,
-          endTime
+          endTime,
         };
         await api.post("/seminars", payload);
       } else {
-        // ---- NEW: create ONE aggregated record for the whole date range ----
         const days = listDatesBetween(startDate, endDate);
-        const startKey = ymd(startDate);
-        const endKey = ymd(endDate);
-
-        // Build a daySlots map (date -> { startTime, endTime } or null for full-day)
         const submittedDaySlots = {};
         for (const d of days) {
           const key = ymd(d);
           const ds = daySlots[key];
           if (ds && ds.startTime && ds.endTime) {
-            submittedDaySlots[key] = { startTime: ds.startTime, endTime: ds.endTime };
+            submittedDaySlots[key] = {
+              startTime: ds.startTime,
+              endTime: ds.endTime,
+            };
           } else {
             submittedDaySlots[key] = null; // full-day
           }
         }
 
-        // Single payload representing the whole range.
         const payload = {
           hallName: selectedHall || selectedHallObj?.name,
           slot: "DayRange",
@@ -602,61 +1076,121 @@ export default function AddSeminarPage() {
           status: "PENDING",
           remarks: DEFAULT_REMARKS,
           appliedAt: nowIso,
-          startDate: startKey,
-          endDate: endKey,
-          // include per-day times so admin UI can show the "more" detail
-          daySlots: submittedDaySlots
+          startDate: ymd(startDate),
+          endDate: ymd(endDate),
+          daySlots: submittedDaySlots,
         };
-
         await api.post("/seminars", payload);
       }
 
       await fetchAll();
       resetForm();
-      notify("Seminar request submitted (PENDING).", "success", { autoDismiss: 3500 });
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 1600);
     } catch (err) {
-      console.error("Error adding seminar:", err);
-      const serverMsg =
-        (err.response && (err.response.data?.message || err.response.data?.error || err.response.data)) ||
+      console.error("Dept submit error:", err);
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
         err.message ||
-        "Error adding seminar!";
-      notify(String(serverMsg), "error", { autoDismiss: 6000 });
-    } finally {
-      setLoadingSubmit(false);
+        "Error submitting request";
+      showNotification(String(msg), "error", 6000);
     }
   };
 
-  /* ---------- tiny heatmap ---------- */
-  const renderTinyHeatmap = (hallKey, dateObj) => {
-    const key = ymd(dateObj || new Date());
-    const arr = bookedMap.get(key) || [];
-    const startBase = hhmmToMinutes(TIME_OPTIONS[0]);
-    const endBase = hhmmToMinutes(TIME_OPTIONS[TIME_OPTIONS.length-1]) + 15;
-    const total = Math.max(0, (endBase - startBase) / 15);
-    const slots = new Array(total).fill(false);
-    arr.forEach((b) => {
-      const hallMatch = b.hallName === hallKey || String(b.hallId) === String(hallKey);
-      if (!hallMatch) return;
-      for (let seg=0; seg<total; seg++) {
-        const segStart = startBase + seg*15;
-        const segEnd = segStart + 15;
-        if (intervalsOverlap(segStart, segEnd, b.startMin, b.endMin)) slots[seg] = true;
-      }
+  /* ---------- sync daySlots with date range ---------- */
+
+  useEffect(() => {
+    if (!startDate || !endDate) return;
+    const sd = new Date(startDate);
+    const ed = new Date(endDate);
+    sd.setHours(0, 0, 0, 0);
+    ed.setHours(0, 0, 0, 0);
+    if (ed < sd) return;
+    const days = listDatesBetween(sd, ed);
+    setDaySlots((prev) => {
+      const next = { ...prev };
+      days.forEach((d) => {
+        const k = ymd(d);
+        if (!next[k])
+          next[k] = {
+            startTime: TIME_OPTIONS[4],
+            endTime: TIME_OPTIONS[8],
+          };
+      });
+      Object.keys(next).forEach((k) => {
+        if (!days.some((d) => ymd(d) === k)) delete next[k];
+      });
+      return next;
     });
-    return (
-      <div className="mt-3">
-        <div className="flex gap-0.5">
-          {slots.map((s,i) => (
-            <div key={i} title={`${String(i)} ${s ? "(booked)" : "(free)"}`} className={`h-2 flex-1 rounded-sm ${s ? "bg-rose-300" : "bg-emerald-200"}`} />
-          ))}
-        </div>
-        <div className={`mt-1 text-xs ${isDtao ? "text-slate-300" : "text-slate-500"}`}>Heatmap (15m segments)</div>
-      </div>
-    );
+  }, [startDate, endDate]);
+
+  /* ---------- calendar cells ---------- */
+
+  const firstOfMonth = new Date(calendarYear, calendarMonth, 1);
+  const startWeekday = firstOfMonth.getDay();
+  const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+  const calendarCells = [];
+  for (let i = 0; i < startWeekday; i++) calendarCells.push(null);
+  for (let dNum = 1; dNum <= daysInMonth; dNum++) calendarCells.push(dNum);
+
+  const selectedDateForDisplay = bookingMode === "time" ? date : startDate;
+  const selectedDateKey = ymd(selectedDateForDisplay);
+
+  /* ---------- day click -> set form + show modal ---------- */
+
+  const extractIsoDate = (s) => {
+    const raw =
+      s.date ?? s.startDate ?? s.appliedAt ?? s.createdAt ?? null;
+    if (!raw) return null;
+    return String(raw).split("T")[0];
   };
 
-  /* ---------- load user + location state ---------- */
-  useEffect(()=> {
+  const handleCalendarDayClick = (dayNumber) => {
+    if (!dayNumber) return;
+    const d = new Date(calendarYear, calendarMonth, dayNumber);
+
+    if (bookingMode === "time") {
+      setDate(d);
+    } else {
+      setStartDate(d);
+      setEndDate(d);
+    }
+    setLastCheckOk(false);
+    setLastCheckMessage("");
+
+    const clickedKey = ymd(d);
+    const list = (seminars || []).filter((s) => {
+      const status = String((s.status || "APPROVED")).toUpperCase();
+      if (status !== "APPROVED" && status !== "PENDING") return false;
+      const iso = extractIsoDate(s);
+      if (!iso || iso !== clickedKey) return false;
+
+      const hallCandidates = [
+        s.hallName,
+        s.hall?.name,
+        s.hall,
+        s.hall_id,
+        s.room,
+        s.venue,
+      ]
+        .filter(Boolean)
+        .map(String);
+
+      if (selectedHall) {
+        return hallCandidates.some((c) => String(c) === String(selectedHall));
+      }
+      return true;
+    });
+
+    setDayModalDate(clickedKey);
+    setDayModalBookings(list);
+    setShowDayModal(true);
+  };
+
+  /* ---------- prefill user + location state ---------- */
+
+  useEffect(() => {
     const u = getLoggedUser();
     if (u) {
       if (u.email) setEmail(u.email);
@@ -668,318 +1202,722 @@ export default function AddSeminarPage() {
     const st = location.state || {};
     if (st.selectedHall) setSelectedHall(st.selectedHall);
     if (st.date) {
-      try { const d = new Date(st.date); setDate(d); setStartDate(d); setEndDate(d); } catch {}
+      try {
+        const d = new Date(st.date);
+        setDate(d);
+        setStartDate(d);
+        setEndDate(d);
+      } catch {}
     }
     if (st.selectedStartTime) setStartTime(st.selectedStartTime);
     if (st.selectedEndTime) setEndTime(st.selectedEndTime);
     setAppliedAt(new Date().toISOString());
   }, [location.state]);
 
-  useEffect(()=> {
-    const sel = new Date(date);
-    sel.setHours(0,0,0,0);
-    const today = new Date(); today.setHours(0,0,0,0);
-    setIsSelectedPast(sel < today);
-  }, [date]);
-
-  useEffect(()=> {
-    if (!startDate || !endDate) return;
-    const sd = new Date(startDate); sd.setHours(0,0,0,0);
-    const ed = new Date(endDate); ed.setHours(0,0,0,0);
-    if (ed < sd) return;
-    const days = listDatesBetween(sd, ed);
-    setDaySlots((prev) => {
-      const next = { ...prev };
-      days.forEach((d) => {
-        const k = ymd(d);
-        if (!next[k]) next[k] = { startTime: TIME_OPTIONS[4], endTime: TIME_OPTIONS[8] };
-      });
-      Object.keys(next).forEach((k) => {
-        if (!days.some(d => ymd(d) === k)) delete next[k];
-      });
-      return next;
-    });
-  }, [startDate, endDate]);
-
-  useEffect(()=> {
-    if (halls.length > 0 && !selectedHall) {
-      const first = halls[0];
-      setSelectedHall(first.name || first._id || first.id || "");
-    }
-    if ((!departments || departments.length === 0) && !loading) {
-      setDepartments(["ADMIN","CSE-1","CSE-2","ISE","ECE"]);
-    }
-  }, [halls, departments, loading, selectedHall]);
-
   /* ---------- render ---------- */
+
   return (
-    <>
-      <style>{`
-        .liquid-toggle { background: linear-gradient(90deg, rgba(99,102,241,0.08), rgba(99,102,241,0.04)); background-size: 200% 100%; transition: background-position .5s; }
-        .hall-tile { transition: transform .18s ease, box-shadow .18s ease; }
-        .hall-tile:hover { transform: translateY(-4px) scale(1.01); box-shadow: 0 10px 20px rgba(0,0,0,0.06); }
-      `}</style>
+    <div
+      className={`${
+        isDtao
+          ? "min-h-screen p-6 bg-[#08050b] text-slate-100"
+          : "min-h-screen bg-slate-50 p-6"
+      }`}
+    >
+      <SuccessOverlay show={showSuccess} isDtao={isDtao} reduce={reduce} />
 
-      <div className={`${isDtao ? "min-h-screen p-6 bg-[#08050b] text-slate-100" : "min-h-screen w-full p-4 sm:p-6 lg:p-8"}`}>
-        <main className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* LEFT: form */}
-          <section className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white"} rounded-2xl p-6 shadow`}>
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className={`${isDtao ? "text-slate-100" : "text-slate-800"} text-2xl font-semibold`}>Request Seminar (Dept)</h1>
-                <p className={`${isDtao ? "text-slate-300" : "text-slate-500"} text-sm mt-1`}>Requests go to Admin (PENDING) — check availability first.</p>
-              </div>
+      {showDayModal && (
+        <DayBookingsOverlay
+          isDtao={isDtao}
+          reduce={reduce}
+          date={dayModalDate}
+          bookings={dayModalBookings}
+          onClose={() => setShowDayModal(false)}
+        />
+      )}
 
-              <div className="text-right">
-                <div className={`${isDtao ? "text-slate-300" : "text-sm text-slate-500"}`}>Auto-check</div>
-                <label className="inline-flex items-center mt-1">
-                  <input type="checkbox" checked={autoCheckEnabled} onChange={(e)=>setAutoCheckEnabled(!!e.target.checked)} className="mr-2" />
-                  <span className="text-sm">{autoCheckEnabled ? "On" : "Off"}</span>
-                </label>
-              </div>
+      <motion.div
+        className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8"
+        initial={reduce ? {} : { opacity: 0, y: 6 }}
+        animate={reduce ? {} : { opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        {/* LEFT: Dept form */}
+        <motion.section
+          className={`${
+            isDtao
+              ? "bg-black/40 border border-violet-900 text-slate-100"
+              : "bg-white"
+          } rounded-2xl p-6 shadow`}
+          initial={reduce ? {} : { opacity: 0, y: 8 }}
+          animate={reduce ? {} : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.05 }}
+        >
+          {/* Venue header with dropdown */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
+            <span className="text-xs font-semibold tracking-[0.15em] uppercase">
+              Venue
+            </span>
+
+            <select
+              value={selectedHall}
+              onChange={(e) => {
+                setSelectedHall(e.target.value);
+                setLastCheckOk(false);
+                setLastCheckMessage("");
+              }}
+              className={`rounded-md px-3 py-2 border text-sm ${
+                isDtao
+                  ? "bg-black/40 border-violet-700 text-slate-100"
+                  : "bg-white border-gray-300 text-slate-800"
+              }`}
+            >
+              {halls.map((h) => {
+                const key = h.name || h._id || h.id;
+                return (
+                  <option key={key} value={h.name || key}>
+                    {h.name}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          <div
+            className={`mt-4 flex gap-3 rounded-full p-1 ${
+              isDtao ? "bg-black/30" : "bg-indigo-50"
+            }`}
+          >
+            <AnimatedButton
+              variant={bookingMode === "time" ? "primary" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setBookingMode("time");
+                setLastCheckOk(false);
+                setLastCheckMessage("");
+              }}
+              className="flex-1"
+            >
+              Time Wise
+            </AnimatedButton>
+            <AnimatedButton
+              variant={bookingMode === "day" ? "primary" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setBookingMode("day");
+                setLastCheckOk(false);
+                setLastCheckMessage("");
+              }}
+              className="flex-1"
+            >
+              Day Wise
+            </AnimatedButton>
+          </div>
+
+          <form
+            onSubmit={(e) => e.preventDefault()}
+            className="mt-6 space-y-4"
+          >
+            <div>
+              <label
+                className={`block text-sm font-medium ${
+                  isDtao ? "text-slate-200" : ""
+                }`}
+              >
+                Event Name
+              </label>
+              <input
+                value={slotTitle}
+                onChange={(e) => setSlotTitle(e.target.value)}
+                placeholder="Tech Symposium 2025"
+                className={`mt-2 w-full rounded-md px-3 py-2 border ${
+                  isDtao
+                    ? "bg-transparent border-violet-700 text-slate-100"
+                    : ""
+                }`}
+              />
             </div>
 
-            <div className={`mt-6 flex gap-3 liquid-toggle rounded-full p-1 ${isDtao ? "bg-black/30" : ""}`}>
-              <button onClick={()=>{ setBookingMode("time"); setLastCheckOk(false); setLastCheckMessage(""); }} className={`flex-1 py-2 rounded-full ${bookingMode==="time" ? (isDtao ? "bg-violet-600 text-white" : "bg-indigo-600 text-white") : (isDtao ? "text-slate-300" : "text-slate-600")}`}>Time Wise</button>
-              <button onClick={()=>{ setBookingMode("day"); setLastCheckOk(false); setLastCheckMessage(""); }} className={`flex-1 py-2 rounded-full ${bookingMode==="day" ? (isDtao ? "bg-violet-600 text-white" : "bg-indigo-600 text-white") : (isDtao ? "text-slate-300" : "text-slate-600")}`}>Day Wise</button>
-            </div>
-
-            <form onSubmit={(e)=>e.preventDefault()} className="mt-6 space-y-4">
-              <div>
-                <label className={`block text-sm font-medium ${isDtao ? "text-slate-200" : ""}`}>Event Name</label>
-                <input value={slotTitle} onChange={(e)=>setSlotTitle(e.target.value)} placeholder="Tech Symposium 2025" className={`mt-2 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`} />
-                {fieldErrors.slotTitle && <div className="text-rose-600 text-xs mt-1">{fieldErrors.slotTitle}</div>}
-              </div>
-
-              {bookingMode==="time" ? (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}><span className="inline-flex items-center"><CalendarIcon className={`h-4 w-4 mr-2 ${isDtao ? "text-slate-300" : "text-slate-400"}`} />Date</span></label>
-                      <div className="relative mt-1">
-                        <input type="date" value={ymd(date)} onChange={(e)=>{ setDate(new Date(e.target.value)); setLastCheckOk(false); setLastCheckMessage(""); }} className={`pl-3 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}>End Date</label>
-                      <div className="relative mt-1">
-                        <input type="date" value={ymd(date)} readOnly className={`pl-3 w-full rounded-md px-3 py-2 border bg-gray-50 text-slate-500 cursor-not-allowed ${isDtao ? "bg-transparent/10 text-slate-400" : ""}`} />
-                      </div>
-                    </div>
+            {bookingMode === "time" ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      className={`block text-sm ${
+                        isDtao ? "text-slate-200" : ""
+                      }`}
+                    >
+                      <span className="inline-flex items-center">
+                        <CalendarIcon
+                          className={`h-4 w-4 mr-2 ${
+                            isDtao ? "text-slate-300" : "text-slate-400"
+                          }`}
+                        />
+                        Date
+                      </span>
+                    </label>
+                    <input
+                      type="date"
+                      value={ymd(date)}
+                      onChange={(e) => {
+                        setDate(new Date(e.target.value));
+                        setLastCheckOk(false);
+                        setLastCheckMessage("");
+                      }}
+                      className={`mt-1 w-full rounded-md px-3 py-2 border ${
+                        isDtao
+                          ? "bg-transparent border-violet-700 text-slate-100"
+                          : ""
+                      }`}
+                    />
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}><span className="inline-flex items-center"><ClockIcon className={`h-4 w-4 mr-2 ${isDtao ? "text-slate-300" : "text-slate-400"}`} />Start Time</span></label>
-                      <div className="mt-1">
-                        <TimeSelect value={startTime} onChange={(v)=>{ setStartTime(v); setLastCheckOk(false); setLastCheckMessage(""); }} className="" ariaLabel="Start time" isDtao={isDtao} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}><span className="inline-flex items-center"><ClockIcon className={`h-4 w-4 mr-2 ${isDtao ? "text-slate-300" : "text-slate-400"}`} />End Time</span></label>
-                      <div className="mt-1">
-                        <TimeSelect value={endTime} onChange={(v)=>{ setEndTime(v); setLastCheckOk(false); setLastCheckMessage(""); }} className="" ariaLabel="End time" isDtao={isDtao} />
-                      </div>
-                    </div>
+                  <div>
+                    <label
+                      className={`block text-sm ${
+                        isDtao ? "text-slate-200" : ""
+                      }`}
+                    >
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={ymd(date)}
+                      readOnly
+                      className={`mt-1 w-full rounded-md px-3 py-2 border bg-gray-50 text-slate-500 cursor-not-allowed ${
+                        isDtao ? "bg-transparent/10 text-slate-400" : ""
+                      }`}
+                    />
                   </div>
-                </>
-              ) : (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}>Start Date</label>
-                      <div className="relative mt-1">
-                        <input type="date" value={ymd(startDate)} onChange={(e)=>{ setStartDate(new Date(e.target.value)); setLastCheckOk(false); setLastCheckMessage(""); }} className={`pl-3 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`} />
-                      </div>
-                    </div>
+                </div>
 
-                    <div>
-                      <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}>End Date</label>
-                      <div className="relative mt-1">
-                        <input type="date" value={ymd(endDate)} onChange={(e)=>{ setEndDate(new Date(e.target.value)); setLastCheckOk(false); setLastCheckMessage(""); }} className={`pl-3 w-full rounded-md px-3 py-2 border ${isDtao ? "bg-transparent border-violet-700 text-slate-100" : ""}`} />
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      className={`block text-sm ${
+                        isDtao ? "text-slate-200" : ""
+                      }`}
+                    >
+                      <span className="inline-flex items-center">
+                        <ClockIcon
+                          className={`h-4 w-4 mr-2 ${
+                            isDtao ? "text-slate-300" : "text-slate-400"
+                          }`}
+                        />
+                        Start Time
+                      </span>
+                    </label>
+                    <TimeSelect
+                      value={startTime}
+                      onChange={(v) => {
+                        setStartTime(v);
+                        setLastCheckOk(false);
+                        setLastCheckMessage("");
+                      }}
+                      isDtao={isDtao}
+                    />
                   </div>
+                  <div>
+                    <label
+                      className={`block text-sm ${
+                        isDtao ? "text-slate-200" : ""
+                      }`}
+                    >
+                      <span className="inline-flex items-center">
+                        <ClockIcon
+                          className={`h-4 w-4 mr-2 ${
+                            isDtao ? "text-slate-300" : "text-slate-400"
+                          }`}
+                        />
+                        End Time
+                      </span>
+                    </label>
+                    <TimeSelect
+                      value={endTime}
+                      onChange={(v) => {
+                        setEndTime(v);
+                        setLastCheckOk(false);
+                        setLastCheckMessage("");
+                      }}
+                      isDtao={isDtao}
+                    />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      className={`block text-sm ${
+                        isDtao ? "text-slate-200" : ""
+                      }`}
+                    >
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={ymd(startDate)}
+                      onChange={(e) => {
+                        setStartDate(new Date(e.target.value));
+                        setLastCheckOk(false);
+                        setLastCheckMessage("");
+                      }}
+                      className={`mt-1 w-full rounded-md px-3 py-2 border ${
+                        isDtao
+                          ? "bg-transparent border-violet-700 text-slate-100"
+                          : ""
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      className={`block text-sm ${
+                        isDtao ? "text-slate-200" : ""
+                      }`}
+                    >
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={ymd(endDate)}
+                      onChange={(e) => {
+                        setEndDate(new Date(e.target.value));
+                        setLastCheckOk(false);
+                        setLastCheckMessage("");
+                      }}
+                      className={`mt-1 w-full rounded-md px-3 py-2 border ${
+                        isDtao
+                          ? "bg-transparent border-violet-700 text-slate-100"
+                          : ""
+                      }`}
+                    />
+                  </div>
+                </div>
 
-                  <p className={`${isDtao ? "text-slate-300" : "text-slate-500"} text-sm`}>You can set per-day times below (optional). If left blank for a day, that day is requested as full-day.</p>
+                <p
+                  className={`${
+                    isDtao ? "text-slate-300" : "text-slate-500"
+                  } text-sm`}
+                >
+                  You can set per-day times below (optional). If left
+                  blank for a day, that date will be requested as full-day.
+                </p>
 
-                  <div className="mt-4 space-y-2">
-                    {listDatesBetween(startDate, endDate).map(d => {
-                      const k = ymd(d);
-                      const ds = daySlots[k] || { startTime: TIME_OPTIONS[4], endTime: TIME_OPTIONS[8] };
-                      return (
-                        <div key={k} className={`${isDtao ? "p-3 bg-black/30 rounded border border-violet-800" : "p-3 bg-slate-50 rounded border"}`}>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className={`${isDtao ? "text-slate-100" : "text-sm font-medium"} text-sm font-medium`}>{k}</div>
-                              <div className={`${isDtao ? "text-slate-300" : "text-xs text-slate-500"} text-xs`}>Optional per-day time</div>
+                <div className="mt-4 space-y-2">
+                  {listDatesBetween(startDate, endDate).map((d) => {
+                    const k = ymd(d);
+                    const ds =
+                      daySlots[k] || {
+                        startTime: TIME_OPTIONS[4],
+                        endTime: TIME_OPTIONS[8],
+                      };
+                    return (
+                      <div
+                        key={k}
+                        className={`${
+                          isDtao
+                            ? "p-3 bg-black/30 rounded border border-violet-800"
+                            : "p-3 bg-slate-50 rounded border"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-medium">
+                              {k}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-[120px]">
-                                <TimeSelect value={ds.startTime} onChange={(v)=>setDaySlots(prev=>({...prev, [k]: {...(prev[k]||{}), startTime: v}}))} isDtao={isDtao} />
-                              </div>
-                              <span className="text-sm">—</span>
-                              <div className="w-[120px]">
-                                <TimeSelect value={ds.endTime} onChange={(v)=>setDaySlots(prev=>({...prev, [k]: {...(prev[k]||{}), endTime: v}}))} isDtao={isDtao} />
-                              </div>
+                            <div
+                              className={`text-xs ${
+                                isDtao
+                                  ? "text-slate-300"
+                                  : "text-slate-500"
+                              }`}
+                            >
+                              Optional per-day time
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-[120px]">
+                              <TimeSelect
+                                value={ds.startTime}
+                                onChange={(v) =>
+                                  setDaySlots((prev) => ({
+                                    ...prev,
+                                    [k]: {
+                                      ...(prev[k] || {}),
+                                      startTime: v,
+                                    },
+                                  }))
+                                }
+                                isDtao={isDtao}
+                              />
+                            </div>
+                            <span className="text-sm">—</span>
+                            <div className="w-[120px]">
+                              <TimeSelect
+                                value={ds.endTime}
+                                onChange={(v) =>
+                                  setDaySlots((prev) => ({
+                                    ...prev,
+                                    [k]: {
+                                      ...(prev[k] || {}),
+                                      endTime: v,
+                                    },
+                                  }))
+                                }
+                                isDtao={isDtao}
+                              />
                             </div>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-medium ${isDtao ? "text-slate-200" : ""}`}>Faculty Name</label>
-                  <input value={bookingName} readOnly className={`mt-2 w-full rounded-md px-3 py-2 border bg-gray-50 ${isDtao ? "bg-transparent/10 text-slate-100" : ""}`} />
-                  {fieldErrors.bookingName && <div className="text-rose-600 text-xs mt-1">{fieldErrors.bookingName}</div>}
+                      </div>
+                    );
+                  })}
                 </div>
+              </>
+            )}
 
-                <div>
-                  <label className={`block text-sm font-medium ${isDtao ? "text-slate-200" : ""}`}>Email</label>
-                  <input value={email} readOnly className={`mt-2 w-full rounded-md px-3 py-2 border bg-gray-50 ${isDtao ? "bg-transparent/10 text-slate-100" : ""}`} placeholder="name@domain.edu" />
-                  {fieldErrors.email && <div className="text-rose-600 text-xs mt-1">{fieldErrors.email}</div>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-medium ${isDtao ? "text-slate-200" : ""}`}>Phone</label>
-                  <input value={phone} readOnly className={`mt-2 w-full rounded-md px-3 py-2 border bg-gray-50 ${isDtao ? "bg-transparent/10 text-slate-100" : ""}`} placeholder="10-digit number" />
-                  {fieldErrors.phone && <div className="text-rose-600 text-xs mt-1">{fieldErrors.phone}</div>}
-                </div>
-
-                <div>
-                  <label className={`block text-sm font-medium ${isDtao ? "text-slate-200" : ""}`}>Department</label>
-                  <input value={department} readOnly className={`mt-2 w-full rounded-md px-3 py-2 border bg-gray-50 ${isDtao ? "bg-transparent/10 text-slate-100" : ""}`} />
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-4">
-                <button type="button" onClick={()=>{ setShowBookedModal(true); setBookedModalDate(bookingMode==="time"? ymd(date) : `${ymd(startDate)} → ${ymd(endDate)}`); }} className={`${isDtao ? "flex-1 bg-transparent border border-violet-800 text-slate-200 py-3 rounded-lg" : "flex-1 bg-gray-100 border py-3 rounded-lg"}`}>View Booked Slots</button>
-
-                <button type="button" onClick={doCheckAvailability} disabled={checking} className={`${isDtao ? "px-6 py-3 rounded-lg bg-violet-600 text-white" : "px-6 py-3 rounded-lg bg-indigo-600 text-white"}`}>
-                  {checking ? "Checking..." : "Check Availability"}
-                </button>
-
-                {/* New: Open Department Calendar */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate("/dept/calendar", {
-                      state: { department, selectedHall: selectedHallObj?.name || selectedHall },
-                    })
-                  }
-                  className={`flex-1 py-3 rounded-lg font-semibold ${
-                    isDtao
-                      ? "bg-violet-600 hover:bg-violet-700 text-white border border-violet-800"
-                      : "bg-indigo-600 hover:bg-indigo-700 text-white"
+            {/* Faculty / contact (read only) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label
+                  className={`block text-sm font-medium ${
+                    isDtao ? "text-slate-200" : ""
                   }`}
                 >
-                  Open Department Calendar
-                </button>
+                  Faculty Name
+                </label>
+                <input
+                  value={bookingName}
+                  readOnly
+                  className={`mt-2 w-full rounded-md px-3 py-2 border bg-gray-50 ${
+                    isDtao ? "bg-transparent/10 text-slate-100" : ""
+                  }`}
+                />
               </div>
-
               <div>
-                <button onClick={handleSubmit} disabled={!lastCheckOk || loadingSubmit} className={`w-full py-3 rounded-lg font-semibold ${lastCheckOk ? "bg-emerald-600 text-white" : "bg-gray-200 text-slate-500 cursor-not-allowed"}`}>
-                  {loadingSubmit ? "Submitting..." : "Submit"}
-                </button>
-                {!lastCheckOk && lastCheckMessage && <div className="mt-2 text-sm text-rose-600">{lastCheckMessage}</div>}
-                {lastCheckOk && lastCheckMessage && <div className="mt-2 text-sm text-emerald-700">{lastCheckMessage}</div>}
+                <label
+                  className={`block text-sm font-medium ${
+                    isDtao ? "text-slate-200" : ""
+                  }`}
+                >
+                  Email
+                </label>
+                <input
+                  value={email}
+                  readOnly
+                  className={`mt-2 w-full rounded-md px-3 py-2 border bg-gray-50 ${
+                    isDtao ? "bg-transparent/10 text-slate-100" : ""
+                  }`}
+                />
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={`block text-sm ${isDtao ? "text-slate-200" : ""}`}>Applied At (current)</label>
-                <input value={new Date(appliedAt).toLocaleString()} readOnly className={`mt-2 w-full rounded-md px-3 py-2 border bg-gray-50 ${isDtao ? "bg-transparent/10 text-slate-100" : ""}`} />
+                <label
+                  className={`block text-sm font-medium ${
+                    isDtao ? "text-slate-200" : ""
+                  }`}
+                >
+                  Phone
+                </label>
+                <input
+                  value={phone}
+                  readOnly
+                  className={`mt-2 w-full rounded-md px-3 py-2 border bg-gray-50 ${
+                    isDtao ? "bg-transparent/10 text-slate-100" : ""
+                  }`}
+                />
               </div>
+              <div>
+                <label
+                  className={`block text-sm font-medium ${
+                    isDtao ? "text-slate-200" : ""
+                  }`}
+                >
+                  Department
+                </label>
+                <input
+                  value={department}
+                  readOnly
+                  className={`mt-2 w-full rounded-md px-3 py-2 border bg-gray-50 ${
+                    isDtao ? "bg-transparent/10 text-slate-100" : ""
+                  }`}
+                />
+              </div>
+            </div>
 
-              {isSelectedPast && (
-                <p className="mt-2 text-sm text-amber-700 bg-amber-50 border rounded-md p-3">
-                  You selected a past date ({ymd(date)}). Booking is disabled for past dates.
-                </p>
+            <div className="flex gap-3 mt-4">
+              <AnimatedButton
+                type="button"
+                variant="ghost"
+                className="flex-1"
+                onClick={resetForm}
+              >
+                Clear
+              </AnimatedButton>
+
+              <AnimatedButton
+                type="button"
+                variant="primary"
+                onClick={doCheckAvailability}
+              >
+                Check Availability
+              </AnimatedButton>
+            </div>
+
+            <div className="mt-2 text-sm">
+              {lastCheckMessage && !lastCheckOk && (
+                <span className="text-rose-600">{lastCheckMessage}</span>
               )}
-            </form>
-          </section>
+              {lastCheckMessage && lastCheckOk && (
+                <span className="text-emerald-700">{lastCheckMessage}</span>
+              )}
+            </div>
 
-          {/* RIGHT: halls + summary */}
-          <aside className="space-y-6">
-            <div className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white"} rounded-lg p-4 shadow-sm`}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className={`${isDtao ? "text-slate-100" : "text-slate-800"} text-lg font-semibold`}>Select a Hall</h3>
-                <div className={`${isDtao ? "text-slate-300" : "text-sm text-slate-500"}`}>Indicator shows availability for selected date</div>
-              </div>
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!lastCheckOk}
+                className={`w-full py-3 rounded-lg font-semibold ${
+                  lastCheckOk
+                    ? "bg-emerald-600 text-white"
+                    : "bg-gray-200 text-slate-500 cursor-not-allowed"
+                }`}
+              >
+                Submit Request
+              </button>
+            </div>
+          </form>
+        </motion.section>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {loading ? <div className={`${isDtao ? "text-slate-300" : ""}`}>Loading halls...</div> : halls.length === 0 ? <div className={`${isDtao ? "text-slate-300" : ""}`}>No halls</div> : halls.map(h => {
-                  const key = h._id || h.id || h.name;
-                  const sel = selectedHall === (h.name || key);
-                  const onDate = bookingMode === "time" ? date : startDate;
-                  const ds = ymd(onDate);
-                  const arr = bookedMap.get(ds) || [];
-                  const startBase = hhmmToMinutes(TIME_OPTIONS[0]);
-                  const endBase = hhmmToMinutes(TIME_OPTIONS[TIME_OPTIONS.length-1]) + 15;
-                  let booked = 0;
-                  arr.forEach(b => {
-                    const hallMatch = (b.hallName === h.name) || (String(b.hallId) === String(h._id));
-                    if (!hallMatch) return;
-                    const overlapStart = Math.max(b.startMin, startBase);
-                    const overlapEnd = Math.min(b.endMin, endBase);
-                    if (overlapEnd > overlapStart) booked += (overlapEnd - overlapStart);
-                  });
-                  const totalWorking = Math.max(1, endBase - startBase);
-                  const pct = Math.round((booked / totalWorking) * 100);
+        {/* RIGHT: calendar + selection */}
+        <motion.aside
+          className="space-y-6"
+          initial={reduce ? {} : { opacity: 0, y: 8 }}
+          animate={reduce ? {} : { opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.08 }}
+        >
+          <div
+            className={`${
+              isDtao
+                ? "bg-black/40 border border-violet-900 text-slate-100"
+                : "bg-white"
+            } rounded-lg p-4 shadow-sm`}
+          >
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <h3
+                className={`${
+                  isDtao ? "text-slate-100" : "text-slate-800"
+                } text-lg font-semibold flex items-center gap-2`}
+              >
+                <span role="img" aria-label="calendar">
+                  📅
+                </span>
+                Seminar Hall Calendar
+              </h3>
+            </div>
 
+            <p
+              className={`${
+                isDtao ? "text-slate-300" : "text-slate-500"
+              } text-xs sm:text-sm mb-3`}
+            >
+              Choose month &amp; year to see which days are free for the
+              selected venue.
+            </p>
+
+            <div className="flex flex-wrap gap-3 mb-4">
+              <select
+                value={calendarMonth}
+                onChange={(e) =>
+                  setCalendarMonth(Number(e.target.value))
+                }
+                className={`rounded-md px-3 py-2 border text-sm ${
+                  isDtao
+                    ? "bg-black/40 border-violet-800 text-slate-100"
+                    : "bg-white border-slate-200 text-slate-800"
+                }`}
+              >
+                {MONTH_NAMES.map((m, idx) => (
+                  <option key={m} value={idx}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={calendarYear}
+                onChange={(e) =>
+                  setCalendarYear(Number(e.target.value))
+                }
+                className={`rounded-md px-3 py-2 border text-sm ${
+                  isDtao
+                    ? "bg-black/40 border-violet-800 text-slate-100"
+                    : "bg-white border-slate-200 text-slate-800"
+                }`}
+              >
+                {[-1, 0, 1].map((off) => {
+                  const y = now.getFullYear() + off;
                   return (
-                    <div key={key} className="relative">
-                      <button onClick={()=>{ setSelectedHall(h.name || key); setSelectedHallObj(h); setLastCheckOk(false); setLastCheckMessage(""); }} className={`w-full text-left p-0 rounded-lg ${sel ? (isDtao ? "border-emerald-500 shadow-lg border" : "border-emerald-500 shadow-lg border") : (isDtao ? "border-violet-800 bg-black/30" : "border-gray-200")}`}>
-                        <div className={`${sel ? (isDtao ? "h-20 flex items-center justify-center font-bold bg-emerald-600 text-white" : "h-20 flex items-center justify-center font-bold bg-emerald-500 text-white") : "h-20 flex items-center justify-center font-bold bg-slate-50 text-slate-800"}`}>
-                          <span>{h.name}</span>
-                        </div>
-
-                        <div className={`${isDtao ? "p-3" : "p-3"}`}>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className={`${isDtao ? "text-slate-100" : "text-sm font-semibold"} text-sm font-semibold`}>{h.name}</div>
-                              <div className={`${isDtao ? "text-slate-300" : "text-xs text-slate-500"} mt-2 flex items-center gap-2 text-xs`}>
-                                <UsersIcon className={`h-4 w-4 ${isDtao ? "text-slate-300" : "text-slate-400"}`} />
-                                <span>Capacity: {h.capacity ?? "—"}</span>
-                              </div>
-                            </div>
-                            <div className={`text-xs px-2 py-1 rounded ${pct===0 ? "bg-emerald-500 text-white" : pct>=95 ? "bg-rose-600 text-white" : "bg-orange-400 text-white"}`}>{pct===0 ? "Free" : pct>=95 ? "Blocked" : `${pct}%`}</div>
-                          </div>
-
-                          {renderTinyHeatmap(h.name || key, bookingMode === "time" ? date : startDate)}
-                        </div>
-                      </button>
-                    </div>
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
                   );
                 })}
-              </div>
+              </select>
             </div>
 
-            <div className={`${isDtao ? "bg-black/40 border border-violet-900 text-slate-100" : "bg-white"} rounded-lg p-4 shadow-sm`}>
-              <h4 className={`${isDtao ? "text-slate-100" : "text-lg font-semibold text-slate-800"} text-lg font-semibold`}>Your Selection</h4>
-              <div className={`text-sm ${isDtao ? "text-slate-300" : "text-slate-600"} space-y-2`}>
-                <div><span className={`${isDtao ? "text-violet-300" : "text-indigo-600"}`}>Hall:</span> {selectedHallObj?.name || selectedHall || "Not selected"}</div>
-                <div><span className={`${isDtao ? "text-violet-300" : "text-indigo-600"}`}>Event:</span> {slotTitle || "Not specified"}</div>
-                <div><span className={`${isDtao ? "text-violet-300" : "text-indigo-600"}`}>Date:</span> {bookingMode==="time" ? ymd(date) : `${ymd(startDate)} → ${ymd(endDate)}`}</div>
-                <div><span className={`${isDtao ? "text-violet-300" : "text-indigo-600"}`}>Time:</span> {bookingMode==="time" ? `${to12Label(startTime)} — ${to12Label(endTime)}` : "Per-day times / full-day"}</div>
-              </div>
+            <div className="grid grid-cols-7 text-center text-xs font-semibold text-slate-500 mb-2">
+              <div>Sun</div>
+              <div>Mon</div>
+              <div>Tue</div>
+              <div>Wed</div>
+              <div>Thu</div>
+              <div>Fri</div>
+              <div>Sat</div>
+            </div>
 
-              <div className="mt-4">
-                <button onClick={()=>resetForm()} className={`${isDtao ? "w-full py-2 rounded bg-transparent border border-violet-700 text-slate-200" : "w-full py-2 rounded bg-gray-100"}`}>Clear</button>
+            <div className="grid grid-cols-7 gap-2">
+              {calendarCells.map((cell, idx) => {
+                if (cell === null) {
+                  return <div key={idx} className="h-20 rounded-xl" />;
+                }
+                const dObj = new Date(calendarYear, calendarMonth, cell);
+                const key = ymd(dObj);
+                const status = getCalendarDayStatus(key, selectedHall);
+                const isSelected = key === selectedDateKey;
+
+                let bg = "bg-emerald-50";
+                let badgeText = "Free";
+                let badgeDot = "bg-emerald-500";
+
+                if (status === "partial") {
+                  bg = "bg-amber-50";
+                  badgeText = "Partial";
+                  badgeDot = "bg-amber-500";
+                } else if (status === "full") {
+                  bg = "bg-rose-50";
+                  badgeText = "Booked";
+                  badgeDot = "bg-rose-500";
+                }
+
+                const borderClass = isSelected
+                  ? "ring-2 ring-blue-500"
+                  : "border border-transparent";
+
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleCalendarDayClick(cell)}
+                    className={`h-20 rounded-xl flex flex-col items-start justify-between px-2 py-2 text-left text-xs ${bg} ${borderClass} transition hover:shadow-sm`}
+                  >
+                    <span className="text-sm font-semibold">
+                      {cell}
+                    </span>
+                    <div className="flex items-center gap-1 text-[11px] mt-auto">
+                      <span
+                        className={`w-2 h-2 rounded-full ${badgeDot}`}
+                      />
+                      <span className="text-slate-700">
+                        {badgeText}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className={`${
+                isDtao ? "text-slate-300" : "text-slate-500"
+              } text-xs mt-3`}
+            >
+              Tip: Click a date to view bookings on that day.
+            </div>
+          </div>
+
+          <div
+            className={`${
+              isDtao
+                ? "bg-black/40 border border-violet-900 text-slate-100"
+                : "bg-white"
+            } rounded-lg p-4 shadow-sm`}
+          >
+            <h4
+              className={`${
+                isDtao
+                  ? "text-slate-100"
+                  : "text-lg font-semibold text-slate-800"
+              } text-lg font-semibold`}
+            >
+              Your Selection
+            </h4>
+            <div
+              className={`text-sm ${
+                isDtao ? "text-slate-300" : "text-slate-600"
+              } space-y-2`}
+            >
+              <div>
+                <span
+                  className={`${
+                    isDtao ? "text-violet-300" : "text-indigo-600"
+                  }`}
+                >
+                  Hall:
+                </span>{" "}
+                {selectedHallObj?.name || selectedHall || "Not selected"}
+              </div>
+              <div>
+                <span
+                  className={`${
+                    isDtao ? "text-violet-300" : "text-indigo-600"
+                  }`}
+                >
+                  Event:
+                </span>{" "}
+                {slotTitle || "Not specified"}
+              </div>
+              <div>
+                <span
+                  className={`${
+                    isDtao ? "text-violet-300" : "text-indigo-600"
+                  }`}
+                >
+                  Date:
+                </span>{" "}
+                {bookingMode === "time"
+                  ? ymd(date)
+                  : `${ymd(startDate)} → ${ymd(endDate)}`}
+              </div>
+              <div>
+                <span
+                  className={`${
+                    isDtao ? "text-violet-300" : "text-indigo-600"
+                  }`}
+                >
+                  Time:
+                </span>{" "}
+                {bookingMode === "time"
+                  ? `${to12Label(startTime)} — ${to12Label(endTime)}`
+                  : "Per-day times / full-day"}
+              </div>
+              <div className="flex items-center gap-2 text-xs pt-1">
+                <UsersIcon
+                  className={`h-4 w-4 ${
+                    isDtao ? "text-slate-300" : "text-slate-400"
+                  }`}
+                />
+                <span>
+                  Capacity: {selectedHallObj?.capacity ?? "—"}
+                </span>
               </div>
             </div>
-          </aside>
-        </main>
-
-        <BookedSlotsModal isOpen={showBookedModal} onClose={()=>setShowBookedModal(false)} seminars={seminars} hallKey={selectedHallObj?.name || selectedHall} dateStr={bookedModalDate} isDtao={isDtao} />
-      </div>
-    </>
+          </div>
+        </motion.aside>
+      </motion.div>
+    </div>
   );
 }
