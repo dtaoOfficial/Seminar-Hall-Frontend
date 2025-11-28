@@ -1289,7 +1289,7 @@ export default function SingleBookingPage() {
                     isDtao ? "text-slate-200" : ""
                   }`}
                 >
-                  Faculty Name
+                  Coordinator Name
                 </label>
                 <input
                   value={bookingName}
@@ -1445,9 +1445,9 @@ export default function SingleBookingPage() {
                 } text-lg font-semibold flex items-center gap-2`}
               >
                 <span role="img" aria-label="calendar">
-                  📅
+                  
                 </span>
-                Seminar Hall Calendar
+                Venue Calendar
               </h3>
               <p
                 className={`${
