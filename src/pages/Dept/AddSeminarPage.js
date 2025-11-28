@@ -1584,7 +1584,7 @@ export default function DeptAddSeminarPage() {
                     isDtao ? "text-slate-200" : ""
                   }`}
                 >
-                  Faculty Name
+                  Coordinator Name
                 </label>
                 <input
                   value={bookingName}
@@ -1713,9 +1713,9 @@ export default function DeptAddSeminarPage() {
                 } text-lg font-semibold flex items-center gap-2`}
               >
                 <span role="img" aria-label="calendar">
-                  📅
+                  
                 </span>
-                Seminar Hall Calendar
+                Venue Calendar
               </h3>
             </div>
 
