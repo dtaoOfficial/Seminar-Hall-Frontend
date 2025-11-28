@@ -68,7 +68,7 @@ export const generateCardPDF = (req) => {
 
   // ====== APPROVED STAMP ======
   const approvedStamp =
-    "https://res.cloudinary.com/duhki4wze/image/upload/v1756926049/logo_ppnfwd.png";
+    "https://res.cloudinary.com/duhki4wze/image/upload/v1764305190/NHCE-Logo_uy7odw.png";
   doc.addImage(approvedStamp, "PNG", 370, 580, 120, 120);
 
   // ====== FOOTER ======
